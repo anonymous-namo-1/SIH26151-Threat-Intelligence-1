@@ -1,0 +1,2 @@
+- [Isolated API tests](test-isolation.md) — dependency overrides do not isolate FastAPI lifespan from the workspace database.
+- [Gateway trust boundary](gateway-boundary.md) — Express and ASGI decode paths differently; broker authority needs signed, backend-enforced scope.

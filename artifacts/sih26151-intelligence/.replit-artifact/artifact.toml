@@ -1,14 +1,14 @@
 kind = "web"
 previewPath = "/"
-title = "SIH26151 Threat Intelligence"
-description = "A production-quality frontend prototype for serious dark web threat actor intelligence analysis, covering investigations, actor confidence, relationships, personas, infrastructure, wallets, evidence, timelines, and reporting with realistic mock data."
+title = "ARGUS Investigation Platform"
+description = "Evidence-led case management, entity correlation, explainable relationship graphs and investigation reporting for authorized research."
 version = "1.0.0"
 id = "artifacts/sih26151-intelligence"
 router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/" ]
+paths = [ "/", "/_next/hmr" ]
 localPort = 24668
 
 [services.development]
@@ -16,12 +16,7 @@ run = "pnpm --filter @workspace/sih26151-intelligence run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/sih26151-intelligence", "run", "build" ]
-serve = "static"
-publicDir = "artifacts/sih26151-intelligence/dist/public"
-
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+run = [ "pnpm", "--filter", "@workspace/sih26151-intelligence", "run", "serve" ]
 
 [services.env]
 PORT = "24668"

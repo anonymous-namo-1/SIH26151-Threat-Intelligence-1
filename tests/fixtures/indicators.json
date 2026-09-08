@@ -1,0 +1,9 @@
+{
+  "case": "Fictional TEST-NET exercise",
+  "authorized_for_training": true,
+  "indicators": [
+    {"type": "ip", "value": "192.0.2.10"},
+    {"type": "domain", "value": "sample.example.invalid"},
+    {"type": "wallet", "value": "FAKE_WALLET_NOT_VALID_TEST_ONLY"}
+  ]
+}

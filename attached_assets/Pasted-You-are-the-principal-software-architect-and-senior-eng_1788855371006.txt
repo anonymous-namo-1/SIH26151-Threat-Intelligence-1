@@ -1,0 +1,408 @@
+You are the principal software architect and senior engineering team for an SIH project based on SIH26151.
+
+Build a COMPLETE, production-style full-stack intelligence investigation platform for correlating threat-actor personas, infrastructure, cryptocurrency indicators, documents, identities, activity patterns and other lawful intelligence.
+
+This is not just a UI prototype.
+
+Build the frontend, backend, APIs, databases, authentication, investigation engine, entity extraction pipeline, relationship graph, scoring system, AI analysis services, reports, audit logging, testing, Docker setup, seed data and documentation.
+
+IMPORTANT SAFETY / SCOPE:
+This platform is for lawful, authorized cybersecurity investigation and research.
+
+Do NOT implement:
+- exploitation of Tor or hidden services
+- malware
+- credential theft
+- unauthorized system access
+- deanonymization exploits
+- IP leakage attacks
+- phishing
+- account takeover
+- bypassing authentication
+- destructive actions
+- automated accusations that a real person is a criminal
+
+The system may ingest authorized/public intelligence and analyze relationships between supplied data.
+
+Every attribution must be represented as a hypothesis with evidence, confidence and uncertainty.
+
+==================================================
+1. PRODUCT
+==================================================
+
+Create a professional web application called:
+
+"ARGUS"
+Threat Intelligence Correlation & Investigation Platform
+
+Purpose:
+
+An investigator creates a CASE.
+
+Inside the case they can enter or import things such as:
+
+- usernames
+- aliases
+- email addresses from authorized datasets
+- domains
+- IP addresses from authorized/public intelligence
+- onion addresses
+- URLs
+- cryptocurrency wallet addresses
+- PGP fingerprints
+- public keys
+- forum posts
+- marketplace listings
+- chat excerpts
+- documents
+- timestamps
+- social/profile links
+- infrastructure indicators
+- uploaded CSV/JSON
+- manually entered evidence
+
+ARGUS converts this information into entities and relationships.
+
+Example:
+
+PERSONA
+    |
+    +--- USERNAME
+    |
+    +--- PGP KEY
+    |
+    +--- WALLET
+    |
+    +--- POST
+    |
+    +--- DOMAIN
+    |
+    +--- INFRASTRUCTURE
+    |
+    +--- SECOND PERSONA
+
+Investigators should be able to explore the resulting graph visually.
+
+==================================================
+2. TECH STACK
+==================================================
+
+Use a maintainable monorepo.
+
+Frontend:
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- React Flow for relationship graph
+- Recharts where charts are useful
+
+Backend:
+- FastAPI
+- Python
+- Pydantic
+- SQLAlchemy
+
+Primary database:
+- PostgreSQL
+
+Graph capabilities:
+Prefer Neo4j if practical.
+
+If Neo4j makes the initial Replit deployment unnecessarily fragile, implement an abstraction layer and use PostgreSQL graph/entity-edge tables initially.
+
+Caching/jobs:
+- Redis
+- background job architecture
+
+AI/NLP:
+Use provider abstraction so AI provider can be changed later.
+
+Create interfaces for:
+- embeddings
+- similarity analysis
+- entity extraction
+- text classification
+- summarization
+
+Do NOT hard-code provider credentials.
+
+Environment variables only.
+
+==================================================
+3. REPOSITORY STRUCTURE
+==================================================
+
+Create a clean monorepo similar to:
+
+/apps
+    /web
+    /api
+
+/packages
+    /shared
+    /types
+    /ui
+
+/services
+    /analysis
+    /entity-extraction
+    /correlation
+    /reporting
+
+/database
+
+/scripts
+
+/tests
+
+/docs
+
+/docker
+
+Do not put everything in massive files.
+
+Use modules, interfaces, services and dependency injection where appropriate.
+
+==================================================
+4. AUTHENTICATION & USERS
+==================================================
+
+Create authentication.
+
+Roles:
+
+ADMIN
+LEAD_INVESTIGATOR
+INVESTIGATOR
+ANALYST
+VIEWER
+
+Implement RBAC.
+
+Permissions should control:
+
+- case creation
+- case deletion
+- evidence uploads
+- investigation edits
+- report generation
+- exports
+- administration
+- user management
+
+Create:
+
+/login
+/register if enabled
+/forgot-password
+/settings/security
+
+Use secure password hashing.
+
+Prepare architecture for MFA.
+
+==================================================
+5. CASE MANAGEMENT
+==================================================
+
+Investigators create cases.
+
+Each case contains:
+
+case ID
+title
+description
+priority
+status
+created by
+assigned analysts
+tags
+date created
+last updated
+classification
+notes
+
+Statuses:
+
+OPEN
+INVESTIGATING
+REVIEW_REQUIRED
+CLOSED
+ARCHIVED
+
+Create a professional case dashboard.
+
+==================================================
+6. GLOBAL SEARCH
+==================================================
+
+Create an investigation search bar.
+
+Search should support:
+
+username
+wallet
+PGP fingerprint
+domain
+IP
+email
+URL
+keyword
+entity ID
+case ID
+
+Results should be grouped by entity type.
+
+==================================================
+7. ENTITY MODEL
+==================================================
+
+Create normalized entities.
+
+Support at minimum:
+
+ACTOR_HYPOTHESIS
+PERSONA
+USERNAME
+EMAIL
+PGP_KEY
+CRYPTO_WALLET
+DOMAIN
+IP_ADDRESS
+ONION_SERVICE
+URL
+POST
+MESSAGE
+DOCUMENT
+MARKETPLACE
+FORUM
+ORGANIZATION
+INFRASTRUCTURE
+FILE_HASH
+CRYPTO_TRANSACTION
+LOCATION_INDICATOR
+DEVICE_INDICATOR
+
+Every entity should have:
+
+UUID
+type
+value/name
+aliases
+description
+source
+first_seen
+last_seen
+confidence
+case association
+created_at
+updated_at
+metadata JSON
+tags
+
+==================================================
+8. RELATIONSHIPS
+==================================================
+
+Relationships are extremely important.
+
+Examples:
+
+USES
+OWNS
+POSTED
+MENTIONED
+SIGNED_WITH
+TRANSACTED_WITH
+HOSTED_ON
+RESOLVES_TO
+REGISTERED_WITH
+SAME_AS
+POSSIBLY_SAME_AS
+COMMUNICATED_WITH
+ASSOCIATED_WITH
+OBSERVED_AT
+LINKED_TO
+MIGRATED_TO
+
+Every relationship must contain:
+
+source entity
+target entity
+relationship type
+confidence
+evidence references
+reason
+created time
+created by
+algorithm/human attribution
+
+==================================================
+9. GRAPH INVESTIGATION UI
+==================================================
+
+Build a high-quality interactive graph.
+
+Features:
+
+- drag nodes
+- zoom
+- pan
+- expand node
+- collapse neighbors
+- filter by entity type
+- filter by relationship type
+- confidence threshold
+- color/icon by entity type
+- click node for inspector panel
+- click edge for evidence
+- graph search
+- path finding
+- shortest relationship path
+- timeline mode
+- save investigation view
+
+Node side panel should show:
+
+entity information
+related cases
+related entities
+evidence
+timeline
+confidence
+notes
+
+==================================================
+10. EVIDENCE SYSTEM
+==================================================
+
+Every conclusion MUST be traceable to evidence.
+
+Evidence types:
+
+MANUAL
+DOCUMENT
+PUBLIC_SOURCE
+DATASET
+API_IMPORT
+SCREENSHOT_METADATA
+TEXT
+CRYPTO_DATA
+INFRASTRUCTURE_DATA
+
+Store:
+
+evidence ID
+source
+source URL if applicable
+collection time
+collector
+content hash
+notes
+case ID
+related entities
+reliability rating
+
+Never display unsupported conclusions.

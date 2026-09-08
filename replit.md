@@ -1,45 +1,32 @@
-# [Project name]
+# ARGUS
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Case-scoped threat-intelligence analysis for lawful, supplied/public material.
 
-## Run & Operate
+## Run and check
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Workspace checks: `pnpm run typecheck`, `pnpm run build`
+- Gateway: `pnpm --filter @workspace/api-server run dev` (`PORT` required)
+- Web: `pnpm --filter @workspace/sih26151-intelligence run dev`
+- Internal API: `python -m apps.api.main`
+- Python tests: `pytest tests/analysis tests/backend`
+- Client generation: `pnpm --filter @workspace/api-spec run codegen`
 
-## Stack
+The normal topology is browser → same-origin Express gateway → signed private FastAPI hop. FastAPI listens on `127.0.0.1:8002` by default. Clerk manages credentials; ARGUS stores only the Clerk subject, display name, role and status.
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+## Source map
 
-## Where things live
+- `artifacts/sih26151-intelligence`: Next.js 16 web (`apps/web` equivalent)
+- `artifacts/api-server`: Express gateway (`apps/gateway` equivalent)
+- `apps/api`: FastAPI business service and SQLAlchemy model
+- `services/argus_analysis`: analysis package
+- `lib/api-spec/openapi.yaml`: reviewed browser API contract
+- `docs/`: architecture, security, API and developer guidance
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+## Operational rules
 
-## Architecture decisions
-
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Never run schema creation against production. `python -m apps.api.manage init-db --development` is only for a new local development database. Replit Publish owns production schema publication.
+- Bootstrap an admin only after the Clerk account has signed in/has a known subject: `python -m apps.api.manage provision-admin --clerk-sub <subject>`.
+- `SESSION_SECRET` must match gateway and API. Do not expose the internal API publicly.
+- Replit Object Storage depends on its local credential sidecar. External Docker currently lacks a GCS adapter and therefore lacks upload parity.
+- No crawler, OCR, Neo4j, semantic embeddings, or automatic attribution exists.
+- The managed web preview serves `next build` + `next start`: this workspace's external proxy rejects Next dev HMR upgrades and can stall Turbopack client loading. Use `dev:local` only with a compatible direct local proxy; rebuild/restart the managed web workflow after frontend edits.

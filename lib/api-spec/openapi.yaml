@@ -1,36 +1,746 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: ARGUS lawful threat-intelligence investigation API
 servers:
   - url: /api
-    description: Base API path
 tags:
-  - name: health
-    description: Health operations
+  - { name: health }
+  - { name: argus }
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
       responses:
-        "200":
-          description: Healthy
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
+        "200": { description: Healthy, content: { application/json: { schema: { $ref: "#/components/schemas/HealthStatus" } } } }
+  /argus/me:
+    get:
+      operationId: getMe
+      tags: [argus]
+      responses:
+        "200": { description: Current user, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+  /argus/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [argus]
+      responses:
+        "200": { description: Visible case aggregates, content: { application/json: { schema: { $ref: "#/components/schemas/Dashboard" } } } }
+  /argus/capabilities:
+    get:
+      operationId: getCapabilities
+      tags: [argus]
+      responses:
+        "200": { description: Runtime capabilities, content: { application/json: { schema: { $ref: "#/components/schemas/Capabilities" } } } }
+  /argus/cases:
+    get:
+      operationId: listCases
+      tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/CaseStatus" } }
+      responses:
+        "200": { description: Cases, content: { application/json: { schema: { $ref: "#/components/schemas/CasePage" } } } }
+    post:
+      operationId: createCase
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CaseInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Case" } } } }
+  /argus/cases/{case_id}:
+    parameters: [{ $ref: "#/components/parameters/CaseId" }]
+    get:
+      operationId: getCase
+      tags: [argus]
+      responses:
+        "200": { description: Case, content: { application/json: { schema: { $ref: "#/components/schemas/Case" } } } }
+    patch:
+      operationId: updateCase
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CaseUpdate" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Case" } } } }
+    delete:
+      operationId: deleteCase
+      tags: [argus]
+      responses:
+        "204": { description: Deleted }
+  /argus/search:
+    get:
+      operationId: searchIntelligence
+      tags: [argus]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        "200": { description: Search results, content: { application/json: { schema: { $ref: "#/components/schemas/SearchResults" } } } }
+  /argus/cases/{case_id}/entities:
+    parameters: [{ $ref: "#/components/parameters/CaseId" }]
+    get:
+      operationId: listEntities
+      tags: [argus]
+      responses:
+        "200": { description: Entities, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Entity" } } } } }
+    post:
+      operationId: createEntity
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EntityInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Entity" } } } }
+  /argus/entities/{entity_id}:
+    parameters: [{ $ref: "#/components/parameters/EntityId" }]
+    get:
+      operationId: getEntity
+      tags: [argus]
+      responses:
+        "200": { description: Entity, content: { application/json: { schema: { $ref: "#/components/schemas/Entity" } } } }
+    patch:
+      operationId: updateEntity
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EntityUpdate" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Entity" } } } }
+  /argus/cases/{case_id}/relationships:
+    parameters: [{ $ref: "#/components/parameters/CaseId" }]
+    get:
+      operationId: listRelationships
+      tags: [argus]
+      responses:
+        "200": { description: Relationships, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Relationship" } } } } }
+    post:
+      operationId: createRelationship
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RelationshipInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Relationship" } } } }
+  /argus/relationships/{relationship_id}:
+    parameters: [{ $ref: "#/components/parameters/RelationshipId" }]
+    patch:
+      operationId: updateRelationship
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RelationshipUpdate" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Relationship" } } } }
+    delete:
+      operationId: deleteRelationship
+      tags: [argus]
+      responses:
+        "204": { description: Deleted }
+  /argus/cases/{case_id}/graph:
+    get:
+      operationId: getCaseGraph
+      tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/CaseId" }
+        - { name: min_confidence, in: query, schema: { type: number, minimum: 0, maximum: 1, default: 0 } }
+        - { name: entity_type, in: query, schema: { $ref: "#/components/schemas/EntityType" } }
+        - { name: relationship_type, in: query, schema: { $ref: "#/components/schemas/RelationshipType" } }
+      responses:
+        "200": { description: Graph, content: { application/json: { schema: { $ref: "#/components/schemas/Graph" } } } }
+  /argus/cases/{case_id}/path:
+    get:
+      operationId: findEntityPath
+      tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/CaseId" }
+        - { name: source, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: target, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: min_confidence, in: query, schema: { type: number, minimum: 0, maximum: 1, default: 0 } }
+      responses:
+        "200": { description: Shortest path, content: { application/json: { schema: { $ref: "#/components/schemas/GraphPath" } } } }
+  /argus/cases/{case_id}/views:
+    parameters: [{ $ref: "#/components/parameters/CaseId" }]
+    get:
+      operationId: listSavedViews
+      tags: [argus]
+      responses:
+        "200": { description: Views, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SavedView" } } } } }
+    post:
+      operationId: createSavedView
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SavedViewInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/SavedView" } } } }
+  /argus/views/{view_id}:
+    delete:
+      operationId: deleteSavedView
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/ViewId" }]
+      responses:
+        "204": { description: Deleted }
+  /argus/cases/{case_id}/evidence:
+    parameters: [{ $ref: "#/components/parameters/CaseId" }]
+    get:
+      operationId: listEvidence
+      tags: [argus]
+      responses:
+        "200": { description: Evidence, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Evidence" } } } } }
+    post:
+      operationId: createEvidence
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Evidence" } } } }
+  /argus/evidence/{evidence_id}:
+    parameters: [{ $ref: "#/components/parameters/EvidenceId" }]
+    get:
+      operationId: getEvidence
+      tags: [argus]
+      responses:
+        "200": { description: Evidence, content: { application/json: { schema: { $ref: "#/components/schemas/Evidence" } } } }
+    patch:
+      operationId: updateEvidence
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EvidenceUpdate" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Evidence" } } } }
+  /argus/cases/{case_id}/timeline:
+    get:
+      operationId: getCaseTimeline
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/CaseId" }]
+      responses:
+        "200": { description: Timeline, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TimelineEvent" } } } } }
+  /argus/cases/{case_id}/analyze:
+    post:
+      operationId: analyzeCase
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/CaseId" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AnalysisInput" } } } }
+      responses:
+        "202": { description: Queued, content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } } }
+  /argus/jobs/{job_id}:
+    get:
+      operationId: getJob
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "200": { description: Job, content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } } }
+  /argus/cases/{case_id}/jobs:
+    get:
+      operationId: listCaseJobs
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/CaseId" }]
+      responses:
+        "200": { description: Jobs, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Job" } } } } }
+  /argus/cases/{case_id}/compare:
+    get:
+      operationId: compareEntities
+      tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/CaseId" }
+        - { name: left, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: right, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Explainable comparison, content: { application/json: { schema: { $ref: "#/components/schemas/EntityComparison" } } } }
+  /argus/cases/{case_id}/reports:
+    parameters: [{ $ref: "#/components/parameters/CaseId" }]
+    get:
+      operationId: listReports
+      tags: [argus]
+      responses:
+        "200": { description: Reports, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Report" } } } } }
+    post:
+      operationId: createReport
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ReportInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Report" } } } }
+  /argus/reports/{report_id}:
+    parameters: [{ $ref: "#/components/parameters/ReportId" }]
+    get:
+      operationId: getReport
+      tags: [argus]
+      responses:
+        "200": { description: Report, content: { application/json: { schema: { $ref: "#/components/schemas/Report" } } } }
+    patch:
+      operationId: updateReport
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ReportUpdate" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Report" } } } }
+    delete:
+      operationId: deleteReport
+      tags: [argus]
+      responses:
+        "204": { description: Deleted }
+  /argus/reports/{report_id}/export:
+    get:
+      operationId: exportReport
+      tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { name: format, in: query, required: true, schema: { $ref: "#/components/schemas/ExportFormat" } }
+      responses:
+        "200": { description: Safe rendered report, content: { application/json: { schema: { $ref: "#/components/schemas/ReportExport" } } } }
+  /argus/audit:
+    get:
+      operationId: listAuditEvents
+      tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - { name: case_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Audit events, content: { application/json: { schema: { $ref: "#/components/schemas/AuditPage" } } } }
+  /argus/users:
+    get:
+      operationId: listUsers
+      tags: [argus]
+      responses:
+        "200": { description: Users, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/User" } } } } }
+  /argus/users/{user_id}:
+    patch:
+      operationId: updateUser
+      tags: [argus]
+      parameters: [{ name: user_id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UserUpdate" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/User" } } } }
+  /argus/uploads:
+    post:
+      operationId: createUploadTicket
+      tags: [argus]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UploadInput" } } } }
+      responses:
+        "201": { description: Ticket, content: { application/json: { schema: { $ref: "#/components/schemas/UploadTicket" } } } }
+  /argus/uploads/{upload_id}:
+    get:
+      operationId: getUploadTicket
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/UploadId" }]
+      responses:
+        "200": { description: Ticket, content: { application/json: { schema: { $ref: "#/components/schemas/UploadTicket" } } } }
+  /argus/uploads/{upload_id}/finalize:
+    post:
+      operationId: finalizeUpload
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/UploadId" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UploadFinalizeInput" } } } }
+      responses:
+        "201": { description: Evidence, content: { application/json: { schema: { $ref: "#/components/schemas/Evidence" } } } }
+  /argus/seed:
+    post:
+      operationId: seedWorkspace
+      tags: [argus]
+      responses:
+        "201": { description: Fictional investigation, content: { application/json: { schema: { $ref: "#/components/schemas/Case" } } } }
 components:
+  parameters:
+    CaseId: { name: case_id, in: path, required: true, schema: { type: string, format: uuid } }
+    EntityId: { name: entity_id, in: path, required: true, schema: { type: string, format: uuid } }
+    RelationshipId: { name: relationship_id, in: path, required: true, schema: { type: string, format: uuid } }
+    EvidenceId: { name: evidence_id, in: path, required: true, schema: { type: string, format: uuid } }
+    ReportId: { name: report_id, in: path, required: true, schema: { type: string, format: uuid } }
+    ViewId: { name: view_id, in: path, required: true, schema: { type: string, format: uuid } }
+    JobId: { name: job_id, in: path, required: true, schema: { type: string, format: uuid } }
+    UploadId: { name: upload_id, in: path, required: true, schema: { type: string, format: uuid } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    Offset: { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
   schemas:
     HealthStatus:
       type: object
+      required: [status]
+      properties: { status: { type: string } }
+    Role: { type: string, enum: [ADMIN, LEAD_INVESTIGATOR, INVESTIGATOR, ANALYST, VIEWER] }
+    CaseStatus: { type: string, enum: [OPEN, INVESTIGATING, REVIEW_REQUIRED, CLOSED, ARCHIVED] }
+    Priority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+    Classification: { type: string, enum: [UNCLASSIFIED, RESTRICTED, CONFIDENTIAL] }
+    EntityType: { type: string, enum: [ACTOR_HYPOTHESIS, PERSONA, USERNAME, EMAIL, PGP_KEY, CRYPTO_WALLET, DOMAIN, IP_ADDRESS, ONION_SERVICE, URL, POST, MESSAGE, DOCUMENT, MARKETPLACE, FORUM, ORGANIZATION, INFRASTRUCTURE, FILE_HASH, CRYPTO_TRANSACTION, LOCATION_INDICATOR, DEVICE_INDICATOR] }
+    RelationshipType: { type: string, enum: [USES, OWNS, POSTED, MENTIONED, SIGNED_WITH, TRANSACTED_WITH, HOSTED_ON, RESOLVES_TO, REGISTERED_WITH, SAME_AS, POSSIBLY_SAME_AS, COMMUNICATED_WITH, ASSOCIATED_WITH, OBSERVED_AT, LINKED_TO, MIGRATED_TO] }
+    Attribution: { type: string, enum: [HUMAN, ALGORITHM] }
+    HumanAttribution: { type: string, enum: [HUMAN] }
+    EvidenceType: { type: string, enum: [MANUAL, DOCUMENT, PUBLIC_SOURCE, DATASET, API_IMPORT, SCREENSHOT_METADATA, TEXT, CRYPTO_DATA, INFRASTRUCTURE_DATA] }
+    Reliability: { type: string, enum: [A, B, C, D, E, F, UNKNOWN, LOW, MEDIUM, HIGH, VERIFIED] }
+    AnalysisMode: { type: string, enum: [extract, correlate, summarize] }
+    JobStatus: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED, RETRYING] }
+    ExportFormat: { type: string, enum: [markdown, json, html] }
+    UploadState: { type: string, enum: [PENDING, FINALIZED] }
+    JsonMetadata: { type: object, additionalProperties: true }
+    User:
+      type: object
+      required: [id, clerk_sub, name, role, active, created_at]
       properties:
-        status:
-          type: string
-      required:
-        - status
-
+        id: { type: string, format: uuid }
+        clerk_sub: { type: string }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+    UserUpdate:
+      type: object
+      required: [role]
+      properties: { role: { $ref: "#/components/schemas/Role" }, active: { type: boolean } }
+    Me:
+      type: object
+      required: [user, permissions]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        permissions: { type: array, items: { type: string } }
+    Case:
+      type: object
+      required: [id, title, description, priority, status, classification, notes, tags, created_by, assignments, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        priority: { $ref: "#/components/schemas/Priority" }
+        status: { $ref: "#/components/schemas/CaseStatus" }
+        classification: { $ref: "#/components/schemas/Classification" }
+        notes: { type: string }
+        tags: { type: array, items: { type: string } }
+        created_by: { $ref: "#/components/schemas/User" }
+        assignments: { type: array, items: { $ref: "#/components/schemas/User" } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CaseInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        priority: { $ref: "#/components/schemas/Priority" }
+        classification: { $ref: "#/components/schemas/Classification" }
+        notes: { type: string, maxLength: 20000 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 64 } }
+        assignment_ids: { type: array, maxItems: 100, items: { type: string, format: uuid } }
+    CaseUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        priority: { $ref: "#/components/schemas/Priority" }
+        status: { $ref: "#/components/schemas/CaseStatus" }
+        classification: { $ref: "#/components/schemas/Classification" }
+        notes: { type: string, maxLength: 20000 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 64 } }
+        assignment_ids: { type: array, maxItems: 100, items: { type: string, format: uuid } }
+    CasePage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Case" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    Dashboard:
+      type: object
+      required: [total_cases, open_cases, evidence_count, entity_count, recent_cases]
+      properties:
+        total_cases: { type: integer }
+        open_cases: { type: integer }
+        evidence_count: { type: integer }
+        entity_count: { type: integer }
+        recent_cases: { type: array, items: { $ref: "#/components/schemas/Case" } }
+    Entity:
+      type: object
+      required: [id, case_id, type, value, aliases, description, source, confidence, tags, metadata, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/EntityType" }
+        value: { type: string }
+        aliases: { type: array, items: { type: string } }
+        description: { type: string }
+        source: { type: string }
+        first_seen: { type: [string, "null"], format: date-time }
+        last_seen: { type: [string, "null"], format: date-time }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        tags: { type: array, items: { type: string } }
+        metadata: { $ref: "#/components/schemas/JsonMetadata" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    EntityInput:
+      type: object
+      required: [type, value]
+      properties:
+        type: { $ref: "#/components/schemas/EntityType" }
+        value: { type: string, minLength: 1, maxLength: 2000 }
+        aliases: { type: array, maxItems: 100, items: { type: string, maxLength: 500 } }
+        description: { type: string, maxLength: 10000 }
+        source: { type: string, maxLength: 2000 }
+        first_seen: { type: [string, "null"], format: date-time }
+        last_seen: { type: [string, "null"], format: date-time }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 64 } }
+        metadata: { $ref: "#/components/schemas/JsonMetadata" }
+    EntityUpdate:
+      type: object
+      properties:
+        value: { type: string, minLength: 1, maxLength: 2000 }
+        aliases: { type: array, maxItems: 100, items: { type: string, maxLength: 500 } }
+        description: { type: string, maxLength: 10000 }
+        source: { type: string, maxLength: 2000 }
+        first_seen: { type: [string, "null"], format: date-time }
+        last_seen: { type: [string, "null"], format: date-time }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 64 } }
+        metadata: { $ref: "#/components/schemas/JsonMetadata" }
+    Relationship:
+      type: object
+      required: [id, case_id, source_id, target_id, type, confidence, evidence_ids, explanation, attribution, created_by, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        source_id: { type: string, format: uuid }
+        target_id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/RelationshipType" }
+        confidence: { type: number }
+        evidence_ids: { type: array, minItems: 1, items: { type: string, format: uuid } }
+        explanation: { type: string }
+        attribution: { $ref: "#/components/schemas/Attribution" }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+    RelationshipInput:
+      type: object
+      required: [source_id, target_id, type, confidence, evidence_ids, explanation, attribution]
+      properties:
+        source_id: { type: string, format: uuid }
+        target_id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/RelationshipType" }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        evidence_ids: { type: array, minItems: 1, maxItems: 100, items: { type: string, format: uuid } }
+        explanation: { type: string, minLength: 1, maxLength: 10000 }
+        attribution: { $ref: "#/components/schemas/HumanAttribution" }
+    RelationshipUpdate:
+      type: object
+      properties:
+        type: { $ref: "#/components/schemas/RelationshipType" }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        evidence_ids: { type: array, minItems: 1, maxItems: 100, items: { type: string, format: uuid } }
+        explanation: { type: string, minLength: 1, maxLength: 10000 }
+    Graph:
+      type: object
+      required: [nodes, edges]
+      properties:
+        nodes: { type: array, items: { $ref: "#/components/schemas/Entity" } }
+        edges: { type: array, items: { $ref: "#/components/schemas/Relationship" } }
+    GraphPath:
+      type: object
+      required: [found, nodes, edges]
+      properties:
+        found: { type: boolean }
+        nodes: { type: array, items: { $ref: "#/components/schemas/Entity" } }
+        edges: { type: array, items: { $ref: "#/components/schemas/Relationship" } }
+    Evidence:
+      type: object
+      required: [id, case_id, type, source, collected_at, collector_id, content_hash, notes, reliability, entity_ids, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/EvidenceType" }
+        source: { type: string }
+        source_url: { type: [string, "null"], format: uri }
+        collected_at: { type: string, format: date-time }
+        collector_id: { type: string, format: uuid }
+        content_hash: { type: string }
+        notes: { type: string }
+        reliability: { $ref: "#/components/schemas/Reliability" }
+        entity_ids: { type: array, items: { type: string, format: uuid } }
+        object_path: { type: [string, "null"] }
+        content: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+    EvidenceInput:
+      type: object
+      required: [type, source, content, reliability]
+      properties:
+        type: { $ref: "#/components/schemas/EvidenceType" }
+        source: { type: string, minLength: 1, maxLength: 2000 }
+        source_url: { type: [string, "null"], format: uri }
+        collected_at: { type: [string, "null"], format: date-time }
+        content: { type: string, minLength: 1, maxLength: 1000000 }
+        notes: { type: string, maxLength: 20000 }
+        reliability: { $ref: "#/components/schemas/Reliability" }
+        entity_ids: { type: array, maxItems: 500, items: { type: string, format: uuid } }
+    EvidenceUpdate:
+      type: object
+      properties:
+        notes: { type: string, maxLength: 20000 }
+        reliability: { $ref: "#/components/schemas/Reliability" }
+        entity_ids: { type: array, maxItems: 500, items: { type: string, format: uuid } }
+    SavedView:
+      type: object
+      required: [id, case_id, name, filters, positions, viewport, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        name: { type: string }
+        filters: { $ref: "#/components/schemas/JsonMetadata" }
+        positions: { $ref: "#/components/schemas/JsonMetadata" }
+        viewport: { $ref: "#/components/schemas/JsonMetadata" }
+        created_at: { type: string, format: date-time }
+    SavedViewInput:
+      type: object
+      required: [name, filters, positions, viewport]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        filters: { $ref: "#/components/schemas/JsonMetadata" }
+        positions: { $ref: "#/components/schemas/JsonMetadata" }
+        viewport: { $ref: "#/components/schemas/JsonMetadata" }
+    TimelineEvent:
+      type: object
+      required: [id, kind, title, occurred_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [EVIDENCE, ENTITY, AUDIT] }
+        title: { type: string }
+        occurred_at: { type: string, format: date-time }
+        entity_id: { type: [string, "null"], format: uuid }
+        evidence_id: { type: [string, "null"], format: uuid }
+    AnalysisInput:
+      type: object
+      required: [mode]
+      properties: { mode: { $ref: "#/components/schemas/AnalysisMode" } }
+    Job:
+      type: object
+      required: [id, case_id, mode, status, attempts, max_attempts, available_at, lease_token, lease_expires_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        mode: { $ref: "#/components/schemas/AnalysisMode" }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        result: { anyOf: [{ $ref: "#/components/schemas/JsonMetadata" }, { type: "null" }] }
+        error: { type: [string, "null"] }
+        available_at: { type: string, format: date-time }
+        lease_token: { type: [string, "null"], format: uuid }
+        lease_expires_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SimilarityFactor:
+      type: object
+      required: [factor, score, explanation, evidence_ids]
+      properties:
+        factor: { type: string }
+        score: { type: number, minimum: 0, maximum: 1 }
+        explanation: { type: string }
+        evidence_ids: { type: array, items: { type: string, format: uuid } }
+    EntityComparison:
+      type: object
+      required: [left_id, right_id, similarity, uncertainty, hypothesis, factors]
+      properties:
+        left_id: { type: string, format: uuid }
+        right_id: { type: string, format: uuid }
+        similarity: { type: number, minimum: 0, maximum: 1 }
+        uncertainty: { type: number, minimum: 0, maximum: 1 }
+        hypothesis: { type: string }
+        factors: { type: array, items: { $ref: "#/components/schemas/SimilarityFactor" } }
+    Report:
+      type: object
+      required: [id, case_id, title, body, citations, hypotheses_marked, created_by, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string }
+        citations: { type: array, items: { type: string, format: uuid } }
+        hypotheses_marked: { type: boolean }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ReportInput:
+      type: object
+      required: [title, body, citations]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, maxLength: 200000 }
+        citations: { type: array, maxItems: 1000, items: { type: string, format: uuid } }
+    ReportUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, maxLength: 200000 }
+        citations: { type: array, maxItems: 1000, items: { type: string, format: uuid } }
+    ReportExport:
+      type: object
+      required: [format, media_type, filename, content]
+      properties:
+        format: { $ref: "#/components/schemas/ExportFormat" }
+        media_type: { type: string }
+        filename: { type: string }
+        content: { type: string }
+    AuditEvent:
+      type: object
+      required: [id, actor_id, action, resource_type, resource_id, created_at, metadata]
+      properties:
+        id: { type: string, format: uuid }
+        actor_id: { type: string, format: uuid }
+        case_id: { type: [string, "null"], format: uuid }
+        action: { type: string }
+        resource_type: { type: string }
+        resource_id: { type: string }
+        created_at: { type: string, format: date-time }
+        metadata: { $ref: "#/components/schemas/JsonMetadata" }
+    AuditPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    SearchGroup:
+      type: object
+      required: [type, entities]
+      properties:
+        type: { $ref: "#/components/schemas/EntityType" }
+        entities: { type: array, items: { $ref: "#/components/schemas/Entity" } }
+    SearchResults:
+      type: object
+      required: [query, cases, groups]
+      properties:
+        query: { type: string }
+        cases: { type: array, items: { $ref: "#/components/schemas/Case" } }
+        groups: { type: array, items: { $ref: "#/components/schemas/SearchGroup" } }
+    Capabilities:
+      type: object
+      required: [analysis, redis_notifications, storage_uploads, max_upload_bytes]
+      properties:
+        analysis: { type: boolean }
+        redis_notifications: { type: boolean }
+        storage_uploads: { type: boolean }
+        max_upload_bytes: { type: integer }
+    UploadInput:
+      type: object
+      required: [case_id, object_path, name, size, content_type]
+      properties:
+        case_id: { type: string, format: uuid }
+        object_path: { type: string, minLength: 1, maxLength: 2000 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        size: { type: integer, minimum: 1, maximum: 5242880 }
+        content_type: { type: string, minLength: 1, maxLength: 255 }
+    UploadTicket:
+      type: object
+      required: [id, case_id, object_path, name, size, content_type, owner_id, state, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        object_path: { type: string }
+        name: { type: string }
+        size: { type: integer }
+        content_type: { type: string }
+        owner_id: { type: string, format: uuid }
+        state: { $ref: "#/components/schemas/UploadState" }
+        evidence_id: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+    ExtractedEntityInput:
+      type: object
+      required: [type, value]
+      properties:
+        type: { $ref: "#/components/schemas/EntityType" }
+        value: { type: string, minLength: 1, maxLength: 2000 }
+    UploadFinalizeInput:
+      type: object
+      required: [content, content_hash, sealed_object_path, source, reliability]
+      properties:
+        content: { type: string, maxLength: 5242880 }
+        content_hash: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        sealed_object_path: { type: string, pattern: "^/objects/sealed/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+        source: { type: string, minLength: 1, maxLength: 2000 }
+        source_url: { type: [string, "null"], format: uri, pattern: "^https?://" }
+        collected_at: { type: [string, "null"], format: date-time }
+        reliability: { $ref: "#/components/schemas/Reliability" }
+        notes: { type: string, maxLength: 20000 }
+        entities: { type: array, maxItems: 1000, items: { $ref: "#/components/schemas/ExtractedEntityInput" } }
