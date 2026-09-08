@@ -19,14 +19,30 @@ leased analysis jobs also require the persistent backend topology.
 
 ## Vercel project settings
 
-1. Import the repository as a Vercel project.
-2. Set **Root Directory** to `artifacts/sih26151-intelligence`.
+1. Import the repository as a Vercel project. The repository-root `vercel.json`
+   explicitly selects Next.js and filters the build to the web package, so an
+   import that starts with Root Directory `./` will not run the workspace-wide
+   build.
+2. Set **Root Directory** to `artifacts/sih26151-intelligence` when the Vercel
+   project settings are available. This is the preferred configuration.
 3. Enable **Include source files outside of the Root Directory**. The web package
    imports the generated workspace client from `lib/api-client-react`.
-4. Keep Framework Preset as **Next.js**. `vercel.json` runs the workspace-aware
-   pnpm install and filtered build.
+4. Keep Framework Preset as **Next.js**. The nested `vercel.json` runs the
+   workspace-aware pnpm install and filtered build when the frontend directory is
+   used as the Root Directory.
 5. Use Node.js 24 and deploy from the lockfile. Do not use npm or regenerate the
    lockfile during the build.
+
+Both supported imports build the same application:
+
+| Vercel Root Directory | Configuration used | Build scope |
+|---|---|---|
+| `./` | `/vercel.json` | Only `@workspace/sih26151-intelligence` |
+| `artifacts/sih26151-intelligence` | Nested `vercel.json` | Only `@workspace/sih26151-intelligence` |
+
+Do not override the Build Command with `pnpm run build` in the Vercel dashboard.
+At repository root that command intentionally builds every workspace project,
+including the Replit-only mockup sandbox.
 
 ## Vercel environment variables
 
