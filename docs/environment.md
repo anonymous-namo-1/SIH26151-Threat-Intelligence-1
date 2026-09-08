@@ -20,7 +20,12 @@ This page lists names and purposes only. Keep values in Replit Secrets or an unc
 | `CLERK_PROXY_URL` | Clerk client integration | Auth proxy URL where used |
 | `VITE_CLERK_PUBLISHABLE_KEY` | web compatibility fallback | Browser Clerk public key |
 | `VITE_CLERK_PROXY_URL` | web compatibility fallback | Browser Clerk proxy URL |
+| `ARGUS_GATEWAY_URL` | Next.js/Vercel build | External HTTPS gateway origin used for same-origin `/api/*` rewrites |
 | `PRIVATE_OBJECT_DIR` | gateway | Replit private object path |
 | `PUBLIC_OBJECT_SEARCH_PATHS` | gateway | Replit public object search paths |
 
 Docker Compose additionally asks for `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` to initialize its local PostgreSQL container. They are Docker-development inputs, not application defaults.
+
+For the hybrid Vercel topology, only `ARGUS_GATEWAY_URL`,
+`CLERK_PUBLISHABLE_KEY`, and `CLERK_PROXY_URL` belong in Vercel. Keep all backend
+secrets on the persistent gateway/API host. See [Vercel deployment](vercel.md).
