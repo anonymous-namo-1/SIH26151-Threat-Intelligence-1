@@ -38,6 +38,11 @@ class ReportUpdate(NonNullPatch):
     citations: list[uuid.UUID] | None = Field(None, max_length=1000)
 
 
+class AnalysisInput(BaseModel):
+    mode: str = Field(pattern="^(extract|correlate|summarize)$")
+    evidence_ids: list[uuid.UUID] | None = Field(None, min_length=1, max_length=500)
+
+
 def serialize(model, metadata=False):
     result = {}
     for column in model.__table__.columns:
@@ -179,11 +184,13 @@ def export_report(report_id: uuid.UUID, format: str = Query(pattern="^(markdown|
 
 
 @router.post("/cases/{case_id}/analyze", status_code=202)
-def analyze(case_id: uuid.UUID, data: dict, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def analyze(case_id: uuid.UUID, data: AnalysisInput, db: Session = Depends(get_db), user: User = Depends(current_user)):
     require(user, "analysis:run"); get_visible_case(db, user, case_id)
-    mode = data.get("mode")
-    if mode not in {"extract", "correlate", "summarize"}: raise HTTPException(422, "Invalid analysis mode")
-    job = Job(case_id=case_id, mode=mode)
+    if data.evidence_ids:
+        valid_citations(db, case_id, data.evidence_ids)
+    job = Job(case_id=case_id, mode=data.mode,
+              result={"input": {"evidence_ids": [str(value) for value in data.evidence_ids]}}
+              if data.evidence_ids else None)
     db.add(job); db.flush(); audit(db, user, "analysis.queued", "job", job.id, case_id); db.commit(); db.refresh(job)
     publish_job(job.id, job.case_id, "QUEUED")
     return job
@@ -207,7 +214,9 @@ def list_jobs(case_id: uuid.UUID, db: Session = Depends(get_db), user: User = De
 def compare(case_id: uuid.UUID, left: uuid.UUID, right: uuid.UUID, db: Session = Depends(get_db),
             user: User = Depends(current_user)):
     get_visible_case(db, user, case_id)
-    cache_key = f"case:{case_id}:compare:{left}:{right}"
+    from .modules import current_rules
+    rules = current_rules(db, case_id)
+    cache_key = f"case:{case_id}:compare:v2:{rules['model_version']}:{left}:{right}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
@@ -216,8 +225,9 @@ def compare(case_id: uuid.UUID, left: uuid.UUID, right: uuid.UUID, db: Session =
     evidence = list(db.scalars(select(Evidence).where(Evidence.case_id == case_id)))
     try:
         from services.argus_analysis import compare_entities
-        result = compare_entities(serialize(entities[0], True), serialize(entities[1], True),
-                                  [serialize(x) for x in evidence])
+        by_id = {item.id: item for item in entities}
+        result = compare_entities(serialize(by_id[left], True), serialize(by_id[right], True),
+                                   [serialize(x) for x in evidence], rules["weights"])
         if hasattr(result, "__await__"):
             raise HTTPException(503, "Async comparison is available only through a background job")
         raw_factors = result.get("factors", [])
@@ -225,12 +235,18 @@ def compare(case_id: uuid.UUID, left: uuid.UUID, right: uuid.UUID, db: Session =
         factors = [{"factor": str(factor.get("name", "unknown")),
                     "score": float(factor.get("score") or 0),
                     "explanation": str(factor.get("reason", "")),
-                    "evidence_ids": factor.get("evidence_ids", [])} for factor in raw_factors]
+                     "evidence_ids": factor.get("evidence_ids", []),
+                     "status": factor.get("status", "unknown"),
+                     "weight": factor.get("weight", 0),
+                     "contribution": factor.get("contribution", 0)} for factor in raw_factors]
         response = {"left_id": left, "right_id": right,
                     "similarity": float(result.get("correlation_score", 0)),
                     "uncertainty": unknown / max(1, len(raw_factors)),
                     "hypothesis": str(result.get("explanation", "Similarity hypothesis only.")),
-                    "factors": factors}
+                     "factors": factors, "model_version": rules["model_version"],
+                     "generated_at": result.get("generated_at"),
+                     "unknown_factors": result.get("unknown_factors", []),
+                     "contradictions": result.get("contradictions", [])}
         cache_set(cache_key, response, ttl=120)
         return response
     except ImportError:

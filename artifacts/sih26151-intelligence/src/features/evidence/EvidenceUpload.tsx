@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useCaseWorkspace } from '@/hooks/use-case-workspace';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { getListEvidenceQueryKey, Reliability } from '@workspace/api-client-react';
+import { getListCaseJobsQueryKey, getListEvidenceQueryKey, Reliability, useAnalyzeCase } from '@workspace/api-client-react';
 import { Upload, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -19,6 +19,7 @@ export function EvidenceUpload() {
   const { caseId } = useCaseWorkspace();
   const queryClient = useQueryClient();
   const { canWriteEvidence } = usePermissions();
+  const analyzeCase = useAnalyzeCase();
   const [open, setOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -33,6 +34,9 @@ export function EvidenceUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('');
+  const [finalized, setFinalized] = useState(false);
+  const [finalizedEvidenceId, setFinalizedEvidenceId] = useState<string>();
+  const activeCaseIdRef = useRef(caseId);
 
   const reset = () => {
     setFile(null);
@@ -45,25 +49,38 @@ export function EvidenceUpload() {
     setIsUploading(false);
     setProgress(0);
     setStage('');
+    setFinalized(false);
+    setFinalizedEvidenceId(undefined);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const f = e.target.files[0];
+  useEffect(() => {
+    activeCaseIdRef.current = caseId;
+    reset();
+    setOpen(false);
+  // reset intentionally runs only when the workspace changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId]);
+
+  const selectFile = (f: File) => {
       if (f.size > MAX_SIZE) {
         toast.error(`File is too large (max 5MiB).`);
-        e.target.value = '';
-        return;
+        return false;
       }
       if (!/\.(txt|md|csv|json|pdf|docx)$/i.test(f.name)) {
         toast.error("Choose a TXT, MD, CSV, JSON, PDF or DOCX file.");
-        e.target.value = '';
-        return;
+        return false;
       }
       setFile(f);
       if (!source) setSource(f.name);
       setTicket(null); // Reset ticket on new file
+      setFinalized(false);
+      return true;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      if (!selectFile(e.target.files[0])) e.target.value = '';
     }
   };
 
@@ -74,10 +91,25 @@ export function EvidenceUpload() {
       return;
     }
 
+    const operationCaseId = caseId;
     setIsUploading(true);
     setProgress(10);
     
     try {
+      if (finalized) {
+        if (!finalizedEvidenceId) throw new Error("Finalized evidence identifier is unavailable");
+        setStage('Queuing indicator extraction for human review...');
+        await analyzeCase.mutateAsync({
+          caseId: operationCaseId,
+          data: { mode: 'extract', evidence_ids: [finalizedEvidenceId] },
+        });
+        queryClient.invalidateQueries({ queryKey: getListCaseJobsQueryKey(operationCaseId) });
+        if (activeCaseIdRef.current !== operationCaseId) return;
+        toast.success("Extraction queued. Review candidates when processing finishes.");
+        reset();
+        setOpen(false);
+        return;
+      }
       let upload_url = ticket?.url;
       let upload_id = ticket?.id;
 
@@ -87,7 +119,7 @@ export function EvidenceUpload() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            case_id: caseId,
+            case_id: operationCaseId,
             name: file.name,
             size: file.size,
             content_type: file.type
@@ -99,11 +131,15 @@ export function EvidenceUpload() {
         upload_url = data.upload_url;
         upload_id = data.upload_id;
         
-        setTicket({ id: upload_id!, url: upload_url! });
+        if (activeCaseIdRef.current === operationCaseId) {
+          setTicket({ id: upload_id!, url: upload_url! });
+        }
       }
       
-      setProgress(40);
-      setStage('Uploading file contents...');
+      if (activeCaseIdRef.current === operationCaseId) {
+        setProgress(40);
+        setStage('Uploading file contents...');
+      }
 
       const putRes = await fetch(upload_url!, {
         method: 'PUT',
@@ -113,8 +149,10 @@ export function EvidenceUpload() {
       
       if (!putRes.ok) throw new Error("Failed to upload file bytes");
       
-      setProgress(80);
-      setStage('Finalizing evidence record...');
+      if (activeCaseIdRef.current === operationCaseId) {
+        setProgress(80);
+        setStage('Finalizing evidence record...');
+      }
 
       const finalizeRes = await fetch('/api/argus/storage/finalize', {
         method: 'POST',
@@ -130,19 +168,40 @@ export function EvidenceUpload() {
       });
 
       if (!finalizeRes.ok) throw new Error("Failed to finalize upload");
+      const finalizedEvidence = await finalizeRes.json() as { id?: string };
+      if (!finalizedEvidence.id) throw new Error("Finalized evidence response did not include an identifier");
+      if (activeCaseIdRef.current === operationCaseId) {
+        setFinalized(true);
+        setFinalizedEvidenceId(finalizedEvidence.id);
+      }
 
-      setProgress(100);
-      setStage('Done!');
-      toast.success("File uploaded and evidence created");
-      queryClient.invalidateQueries({ queryKey: getListEvidenceQueryKey(caseId) });
-      
-      setTimeout(() => {
-        setOpen(false);
-      }, 500);
+      if (activeCaseIdRef.current === operationCaseId) {
+        setProgress(90);
+        setStage('Evidence preserved with its content hash. Queuing extraction suggestions...');
+      }
+      queryClient.invalidateQueries({ queryKey: getListEvidenceQueryKey(operationCaseId) });
+      try {
+        await analyzeCase.mutateAsync({
+          caseId: operationCaseId,
+          data: { mode: 'extract', evidence_ids: [finalizedEvidence.id] },
+        });
+        queryClient.invalidateQueries({ queryKey: getListCaseJobsQueryKey(operationCaseId) });
+        if (activeCaseIdRef.current !== operationCaseId) return;
+        setProgress(100);
+        setStage('Evidence saved; extraction queued for human review.');
+        toast.success("Evidence saved and extraction queued");
+        setTimeout(() => {
+          reset();
+          setOpen(false);
+        }, 500);
+      } catch {
+        throw new Error("Evidence was saved, but extraction could not be queued. Retry to queue extraction; the file will not be uploaded again.");
+      }
     } catch (err: any) {
+      if (activeCaseIdRef.current !== operationCaseId) return;
       toast.error(err.message || "Upload sequence failed");
       setIsUploading(false);
-      // We do not reset the ticket or file so the user can retry
+      // Keep the upload/finalization state so retry resumes at the failed stage.
       setProgress(0);
       setStage('Failed. Click upload to retry.');
     }
@@ -165,9 +224,18 @@ export function EvidenceUpload() {
 
         <div className="grid gap-4 py-4">
           {!file ? (
-            <div className="border-2 border-dashed rounded-lg p-10 text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div
+              className="border-2 border-dashed rounded-lg p-10 text-center hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={event => event.preventDefault()}
+              onDrop={event => {
+                event.preventDefault();
+                const dropped = event.dataTransfer.files[0];
+                if (dropped) selectFile(dropped);
+              }}
+            >
               <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium">Click to select file</p>
+              <p className="text-sm font-medium">Drop a file here or click to select</p>
               <p className="text-xs text-muted-foreground mt-1">Limits: 5MiB, text/documents only</p>
               <input 
                 ref={fileInputRef} 
@@ -244,7 +312,7 @@ export function EvidenceUpload() {
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>Cancel</Button>
           <Button onClick={handleUpload} disabled={!file || isUploading}>
-            {ticket ? (isUploading ? "Retrying..." : "Retry Upload") : (isUploading ? "Uploading..." : "Upload & Create")}
+            {finalized ? (isUploading ? "Queuing..." : "Retry Extraction") : ticket ? (isUploading ? "Retrying..." : "Retry Upload") : (isUploading ? "Uploading..." : "Upload & Analyze")}
           </Button>
         </DialogFooter>
       </DialogContent>

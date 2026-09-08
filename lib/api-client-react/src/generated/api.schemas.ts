@@ -5,6 +5,198 @@
  * ARGUS lawful threat-intelligence investigation API
  * OpenAPI spec version: 1.0.0
  */
+export type ModuleName = typeof ModuleName[keyof typeof ModuleName];
+
+
+export const ModuleName = {
+  persona: 'persona',
+  stylometry: 'stylometry',
+  temporal: 'temporal',
+  wallet: 'wallet',
+  infrastructure: 'infrastructure',
+  alias: 'alias',
+  relationship: 'relationship',
+  reliability: 'reliability',
+  contradiction: 'contradiction',
+  timeline: 'timeline',
+} as const;
+
+export interface ModuleInput {
+  module: ModuleName;
+  left_id?: string;
+  right_id?: string;
+  entity_id?: string;
+  /** @maxLength 50000 */
+  corpus_left?: string;
+  /** @maxLength 50000 */
+  corpus_right?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface AnalysisFactor {
+  name: string;
+  status: string;
+  /** @nullable */
+  score: number | null;
+  weight: number;
+  contribution: number;
+  reason: string;
+  evidence_ids: string[];
+}
+
+export type ModuleResultData = {[key: string]: unknown};
+
+export interface ModuleResult {
+  job_id?: string;
+  module: ModuleName;
+  model_version: string;
+  generated_at: string;
+  explanation: string;
+  evidence_ids: string[];
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  confidence: number | null;
+  positive_evidence: AnalysisFactor[];
+  negative_evidence: AnalysisFactor[];
+  unknown_factors: string[];
+  data: ModuleResultData;
+}
+
+export type ScoringRuleInputWeights = {[key: string]: number};
+
+export interface ScoringRuleInput {
+  weights: ScoringRuleInputWeights;
+}
+
+export type ScoringRulesWeights = {[key: string]: number};
+
+export interface ScoringRules {
+  weights: ScoringRulesWeights;
+  model_version: string;
+  /** @nullable */
+  updated_at: string | null;
+}
+
+export type ReviewDecisionAction = typeof ReviewDecisionAction[keyof typeof ReviewDecisionAction];
+
+
+export const ReviewDecisionAction = {
+  accept: 'accept',
+  reject: 'reject',
+} as const;
+
+export interface ReviewDecision {
+  candidate_id: string;
+  action: ReviewDecisionAction;
+  type?: string;
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  value?: string;
+  /** @maxLength 10000 */
+  explanation?: string;
+}
+
+export interface ReviewInput {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     */
+  decisions: ReviewDecision[];
+}
+
+export interface AssistantInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  question: string;
+}
+
+export type AssistantFindingQuotesItem = {
+  evidence_id: string;
+  quote: string;
+};
+
+export interface AssistantFinding {
+  text: string;
+  evidence_ids: string[];
+  quotes?: AssistantFindingQuotesItem[];
+}
+
+export interface AssistantResult {
+  status: string;
+  answer: string;
+  findings: AssistantFinding[];
+  evidence_ids: string[];
+  uncertainties: string[];
+  model_version: string;
+  generated_at: string;
+}
+
+export interface TransactionRecord {
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  hash: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  from_address: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  to_address: string;
+  /** @pattern ^\d{1,30}(\.\d{1,18})?$ */
+  amount: string;
+  /**
+     * @minLength 1
+     * @maxLength 30
+     */
+  asset: string;
+  timestamp: string;
+  /** @maxItems 20 */
+  labels?: string[];
+}
+
+export interface TransactionImportInput {
+  evidence_id: string;
+  /**
+     * @minItems 1
+     * @maxItems 200
+     */
+  transactions: TransactionRecord[];
+}
+
+export interface TransactionImportResult {
+  created: number;
+  existing: number;
+  entity_ids: string[];
+}
+
+export interface ActivitySummary {
+  id: string;
+  case_id: string;
+  action: string;
+  created_at: string;
+}
+
+export interface CorrelationSummary {
+  job_id: string;
+  case_id: string;
+  confidence: number;
+  explanation: string;
+  generated_at: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -75,6 +267,11 @@ export const EntityType = {
   CRYPTO_TRANSACTION: 'CRYPTO_TRANSACTION',
   LOCATION_INDICATOR: 'LOCATION_INDICATOR',
   DEVICE_INDICATOR: 'DEVICE_INDICATOR',
+  DATE: 'DATE',
+  CERTIFICATE: 'CERTIFICATE',
+  DNS_RECORD: 'DNS_RECORD',
+  HOSTING: 'HOSTING',
+  SERVICE: 'SERVICE',
 } as const;
 
 export type RelationshipType = typeof RelationshipType[keyof typeof RelationshipType];
@@ -274,6 +471,11 @@ export interface Dashboard {
   open_cases: number;
   evidence_count: number;
   entity_count: number;
+  critical_cases?: number;
+  relationship_count?: number;
+  pending_reviews?: number;
+  high_confidence_correlations?: CorrelationSummary[];
+  recent_activity?: ActivitySummary[];
   recent_cases: Case[];
 }
 
@@ -526,12 +728,17 @@ export interface TimelineEvent {
 
 export interface AnalysisInput {
   mode: AnalysisMode;
+  /**
+     * @minItems 1
+     * @maxItems 500
+     */
+  evidence_ids?: string[];
 }
 
 export interface Job {
   id: string;
   case_id: string;
-  mode: AnalysisMode;
+  mode: string;
   status: JobStatus;
   attempts: number;
   max_attempts: number;
@@ -556,6 +763,9 @@ export interface SimilarityFactor {
   score: number;
   explanation: string;
   evidence_ids: string[];
+  status?: string;
+  weight?: number;
+  contribution?: number;
 }
 
 export interface EntityComparison {
@@ -573,6 +783,11 @@ export interface EntityComparison {
   uncertainty: number;
   hypothesis: string;
   factors: SimilarityFactor[];
+  model_version?: string;
+  /** @nullable */
+  generated_at?: string | null;
+  unknown_factors?: string[];
+  contradictions?: string[];
 }
 
 export interface Report {

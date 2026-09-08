@@ -29,6 +29,7 @@ import { GraphAnalysis } from '@/views/GraphAnalysis';
 import { Personas } from '@/views/Personas';
 import { Infrastructure } from '@/views/Infrastructure';
 import { Wallets } from '@/views/Wallets';
+import { Analysis } from '@/views/Analysis';
 import { Timeline } from '@/views/Timeline';
 import { Evidence } from '@/views/Evidence';
 import { Reports } from '@/views/Reports';
@@ -138,6 +139,7 @@ function Router() {
               <ProtectedRoute path="/actors/:id" component={ActorProfile} />
               <ProtectedRoute path="/entities/:id" component={ActorProfile} />
               <ProtectedRoute path="/graph" component={GraphAnalysis} />
+              <ProtectedRoute path="/analysis" component={Analysis} />
               <ProtectedRoute path="/personas" component={Personas} />
               <ProtectedRoute path="/infrastructure" component={Infrastructure} />
               <ProtectedRoute path="/wallets" component={Wallets} />

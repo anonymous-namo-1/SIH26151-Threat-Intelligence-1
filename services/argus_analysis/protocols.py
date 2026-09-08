@@ -41,3 +41,10 @@ class Summarizer(Protocol):
     """Creates an untrusted, evidence-citing summary draft."""
 
     async def summarize(self, evidence: list[dict[str, Any]]) -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class BlockchainProvider(Protocol):
+    """Read-only source of public or explicitly fictional transaction records."""
+
+    def transactions(self, address: str) -> list[dict[str, Any]]: ...

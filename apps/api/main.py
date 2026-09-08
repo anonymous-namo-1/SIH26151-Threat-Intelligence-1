@@ -10,7 +10,7 @@ from .database import SessionLocal
 from .limits import RequestLimitsMiddleware
 from .models import User
 from .redis_service import status as redis_status
-from .routes import admin_uploads, cases, intelligence, operations
+from .routes import admin_uploads, assistant, cases, intelligence, modules, operations, review, transactions
 
 
 @asynccontextmanager
@@ -62,7 +62,8 @@ def healthz():
     return {"status": "ok"}
 
 
-for route in (cases.router, intelligence.router, operations.router, admin_uploads.router):
+for route in (cases.router, intelligence.router, operations.router, admin_uploads.router,
+              modules.router, review.router, assistant.router, transactions.router):
     app.include_router(route, prefix="/api/argus")
 
 

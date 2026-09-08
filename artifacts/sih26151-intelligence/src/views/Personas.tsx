@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { AlertCircle, Scale, ShieldAlert, ArrowRight, RefreshCcw } from "lucide-react";
+import { AlertCircle, Scale, ShieldAlert, ArrowRight, RefreshCcw, Activity } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function PersonasContent() {
@@ -29,11 +29,18 @@ function PersonasContent() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Identity & Persona Analysis</h1>
-        <p className="text-muted-foreground mt-1">
-          Evaluate hypotheses connecting actors, usernames, and distinct personas.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Identity & Persona Analysis</h1>
+          <p className="text-muted-foreground mt-1">
+            Evaluate hypotheses connecting actors, usernames, and distinct personas.
+          </p>
+        </div>
+        <Button variant="secondary" asChild>
+          <Link href={`/analysis?module=persona`}>
+            <Activity className="h-4 w-4 mr-2" /> Run Analysis
+          </Link>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

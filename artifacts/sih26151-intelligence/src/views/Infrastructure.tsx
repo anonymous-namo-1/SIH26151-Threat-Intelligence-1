@@ -8,11 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
   DialogFooter,
@@ -29,7 +29,12 @@ const INFRA_TYPES = [
   EntityType.ONION_SERVICE,
   EntityType.URL,
   EntityType.INFRASTRUCTURE,
-  EntityType.DEVICE_INDICATOR
+  EntityType.DEVICE_INDICATOR,
+  EntityType.CERTIFICATE,
+  EntityType.DNS_RECORD,
+  EntityType.HOSTING,
+  EntityType.SERVICE,
+  EntityType.DATE
 ];
 
 type SortField = "value" | "confidence" | "first_seen" | "last_seen";
@@ -50,7 +55,11 @@ function CreateInfraIndicatorDialog({ caseId, onCreated }: { caseId: string, onC
   const [value, setValue] = useState("");
   const [source, setSource] = useState("");
   const [description, setDescription] = useState("");
-  
+  const [metadataStr, setMetadataStr] = useState("");
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+  const [firstSeen, setFirstSeen] = useState("");
+  const [lastSeen, setLastSeen] = useState("");
+
   const createMutation = useCreateEntity();
   const mutateFnRef = useRef(createMutation.mutate);
   mutateFnRef.current = createMutation.mutate;
@@ -58,17 +67,35 @@ function CreateInfraIndicatorDialog({ caseId, onCreated }: { caseId: string, onC
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!value.trim()) return;
-    
+
+    let metadata = undefined;
+    if (metadataStr.trim()) {
+      try {
+        metadata = JSON.parse(metadataStr);
+        if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+          setMetadataError("Metadata must be a JSON object");
+          return;
+        }
+      } catch (err) {
+        setMetadataError("Invalid JSON format");
+        return;
+      }
+    }
+    setMetadataError(null);
+
     mutateFnRef.current(
-      { 
-        caseId, 
-        data: { 
-          type, 
-          value: value.trim(), 
-          source: source.trim(), 
+      {
+        caseId,
+        data: {
+          type,
+          value: value.trim(),
+          source: source.trim(),
           description: description.trim(),
-          confidence: 1.0
-        } 
+          first_seen: firstSeen ? new Date(firstSeen + "Z").toISOString() : undefined,
+          last_seen: lastSeen ? new Date(lastSeen + "Z").toISOString() : undefined,
+          confidence: 1.0,
+          metadata
+        }
       },
       {
         onSuccess: () => {
@@ -76,11 +103,14 @@ function CreateInfraIndicatorDialog({ caseId, onCreated }: { caseId: string, onC
           setValue("");
           setSource("");
           setDescription("");
+          setMetadataStr("");
+          setFirstSeen("");
+          setLastSeen("");
           onCreated();
         }
       }
     );
-  }, [caseId, type, value, source, description, onCreated]);
+  }, [caseId, type, value, source, description, metadataStr, firstSeen, lastSeen, onCreated]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -111,30 +141,54 @@ function CreateInfraIndicatorDialog({ caseId, onCreated }: { caseId: string, onC
             </div>
             <div className="space-y-2">
               <Label>Observable Value</Label>
-              <Input 
-                value={value} 
-                onChange={e => setValue(e.target.value)} 
-                placeholder="e.g. example.com or 192.168.1.1" 
+              <Input
+                value={value}
+                onChange={e => setValue(e.target.value)}
+                placeholder="e.g. example.com or 192.168.1.1"
                 className="font-mono"
                 required
               />
             </div>
             <div className="space-y-2">
               <Label>Source (Optional)</Label>
-              <Input 
-                value={source} 
-                onChange={e => setSource(e.target.value)} 
-                placeholder="e.g. Server Logs, VirusTotal" 
+              <Input
+                value={source}
+                onChange={e => setSource(e.target.value)}
+                placeholder="e.g. Server Logs, VirusTotal"
               />
             </div>
             <div className="space-y-2">
               <Label>Description & Notes (Optional)</Label>
-              <Textarea 
-                value={description} 
-                onChange={e => setDescription(e.target.value)} 
+              <Textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
                 placeholder="Context for this indicator..."
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>First Seen (UTC)</Label>
+                <Input type="datetime-local" value={firstSeen} onChange={e => setFirstSeen(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Seen (UTC)</Label>
+                <Input type="datetime-local" value={lastSeen} onChange={e => setLastSeen(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Metadata JSON (Optional)</Label>
+              <Textarea
+                value={metadataStr}
+                onChange={e => {
+                  setMetadataStr(e.target.value);
+                  setMetadataError(null);
+                }}
+                placeholder='{"asn": "AS12345", "country": "US"}'
+                className="font-mono text-xs"
                 rows={3}
               />
+              {metadataError && <p className="text-xs text-destructive">{metadataError}</p>}
             </div>
           </div>
           <DialogFooter>
@@ -167,15 +221,15 @@ function InfrastructureContent() {
 
   const filteredAndSorted = useMemo(() => {
     let result = entities.filter(e => INFRA_TYPES.includes(e.type as any));
-    
+
     if (typeFilter !== "ALL") {
       result = result.filter(e => e.type === typeFilter);
     }
-    
+
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(e => 
-        e.value.toLowerCase().includes(q) || 
+      result = result.filter(e =>
+        e.value.toLowerCase().includes(q) ||
         e.source.toLowerCase().includes(q) ||
         (e.description || "").toLowerCase().includes(q)
       );
@@ -189,7 +243,7 @@ function InfrastructureContent() {
         aVal = aVal ? new Date(aVal).getTime() : 0;
         bVal = bVal ? new Date(bVal).getTime() : 0;
       }
-      
+
       if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
       if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
       return 0;
@@ -200,7 +254,7 @@ function InfrastructureContent() {
 
   const handleExport = () => {
     if (!canExport) return;
-    
+
     const headers = ["ID", "Type", "Value", "Source", "Confidence", "First Seen", "Last Seen", "Tags"];
     const rows = filteredAndSorted.map(e => [
       e.id,
@@ -259,6 +313,11 @@ function InfrastructureContent() {
               Export CSV
             </Button>
           )}
+          <Button variant="secondary" asChild>
+            <Link href={`/analysis?module=infrastructure`}>
+              <Activity className="h-4 w-4 mr-2" /> Run Analysis
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -295,26 +354,26 @@ function InfrastructureContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[120px]">Type</TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSort("value")}
                   >
                     <div className="flex items-center">Observable {renderSortIcon("value")}</div>
                   </TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSort("confidence")}
                   >
                     <div className="flex items-center">Confidence {renderSortIcon("confidence")}</div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSort("first_seen")}
                   >
                     <div className="flex items-center">First Seen {renderSortIcon("first_seen")}</div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSort("last_seen")}
                   >
@@ -340,8 +399,8 @@ function InfrastructureContent() {
                   </TableRow>
                 ) : (
                   filteredAndSorted.map(entity => (
-                    <TableRow 
-                      key={entity.id} 
+                    <TableRow
+                      key={entity.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setLocation(`/entities/${entity.id}`)}
                     >
@@ -376,7 +435,7 @@ function InfrastructureContent() {
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className={`h-full ${entity.confidence > 0.7 ? 'bg-emerald-500' : entity.confidence > 0.4 ? 'bg-warning' : 'bg-destructive'}`}
                               style={{ width: `${entity.confidence * 100}%` }}
                             />

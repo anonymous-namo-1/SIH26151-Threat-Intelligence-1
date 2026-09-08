@@ -220,7 +220,7 @@ def test_expired_running_job_is_recovered_with_new_fence(client, db):
     assert db.get(Job, job_id).lease_token == claimed[1]
 
 
-def test_repeated_extract_and_correlate_jobs_are_idempotent(client, db):
+def test_extract_and_correlate_jobs_only_create_stable_review_candidates(client, db):
     case = create_case(client)
     case_id = uuid.UUID(case["id"])
     evidence = client.post(f"/api/argus/cases/{case['id']}/evidence", json={
@@ -235,27 +235,35 @@ def test_repeated_extract_and_correlate_jobs_are_idempotent(client, db):
                   lease_token=token, lease_expires_at=datetime.now(timezone.utc) + timedelta(minutes=5))
         db.add(job); db.commit()
         process(job.id, token)
+        db.expire_all()
+        return db.get(Job, job.id).result
 
-    run("extract")
-    run("extract")
+    first = run("extract")
+    second = run("extract")
     db.expire_all()
     extracted = list(db.query(Entity).filter(
         Entity.case_id == case_id, Entity.type == "DOMAIN",
         Entity.value == "repeat.example.invalid"
     ))
-    assert len(extracted) == 1
+    assert extracted == []
+    assert first["review_required"] is True
+    assert first["candidates"][0]["id"] == second["candidates"][0]["id"]
+    assert first["candidates"][0]["evidence_ids"] == [evidence["id"]]
 
-    duplicate = Entity(case_id=case_id, type="DOMAIN", value="repeat.example.invalid",
-                       source="Fixture duplicate", confidence=.5)
-    db.add(duplicate); db.commit()
+    left = Entity(case_id=case_id, type="DOMAIN", value="repeat.example.invalid",
+                  source="Fixture duplicate", confidence=.5)
+    right = Entity(case_id=case_id, type="DOMAIN", value="repeat.example.invalid",
+                   source="Fixture duplicate", confidence=.5)
+    db.add_all([left, right]); db.commit()
     patched = client.patch(f"/api/argus/evidence/{evidence['id']}", json={
-        "entity_ids": [str(extracted[0].id), str(duplicate.id)]
+        "entity_ids": [str(left.id), str(right.id)]
     })
     assert patched.status_code == 200
-    run("correlate")
-    run("correlate")
+    correlated = run("correlate")
+    repeated = run("correlate")
     db.expire_all()
     algorithm_links = list(db.query(Relationship).filter(
         Relationship.case_id == case_id, Relationship.attribution == "ALGORITHM"
     ))
-    assert len(algorithm_links) == 1
+    assert algorithm_links == []
+    assert correlated["candidates"][0]["id"] == repeated["candidates"][0]["id"]

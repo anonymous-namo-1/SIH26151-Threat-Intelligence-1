@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import threading
 import time
 import uuid
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, or_, select
 
 from .database import SessionLocal
-from .models import Case, Entity, Evidence, Job, Relationship
+from .models import Case, Entity, Evidence, Job
 from .redis_service import invalidate_case, publish_job
 
 worker_ready = threading.Event()
@@ -29,6 +30,7 @@ def as_dict(model) -> dict:
 
 def process(job_id, lease_token: uuid.UUID) -> None:
     from services.argus_analysis import correlate, extract_entities, summarize_evidence
+    from services.argus_analysis.normalization import canonicalize_indicator
 
     with SessionLocal() as db:
         job = db.get(Job, job_id)
@@ -38,60 +40,84 @@ def process(job_id, lease_token: uuid.UUID) -> None:
         # deduplication when multiple durable jobs are queued for one case.
         db.execute(select(Case.id).where(Case.id == job.case_id).with_for_update()).all()
         evidence = list(db.scalars(select(Evidence).where(Evidence.case_id == job.case_id).limit(1000)))
+        input_options = (job.result or {}).get("input", {})
+        requested_evidence = input_options.get("evidence_ids") if isinstance(input_options, dict) else None
+        if isinstance(requested_evidence, list):
+            requested = {str(value) for value in requested_evidence}
+            evidence = [item for item in evidence if str(item.id) in requested]
         entities = list(db.scalars(select(Entity).where(Entity.case_id == job.case_id).limit(1000)))
         if job.mode == "extract":
-            created = []
-            index = {(item.type, item.value.strip().casefold()): item for item in entities}
+            candidates: list[dict] = []
+            index: dict[tuple[str, str], dict] = {}
+            mentions: dict[str, list[str]] = {}
             for item in evidence[:100]:
+                evidence_id = str(item.id)
                 for candidate in extract_entities(item.content or ""):
                     kind = _normalize_type(candidate["type"])
-                    key = (kind, candidate["value"].strip().casefold())
-                    entity = index.get(key)
-                    if entity is None:
-                        entity = Entity(
-                            case_id=job.case_id, type=kind, value=candidate["value"],
-                            source=f"Evidence {item.id}", description=candidate["reason"],
-                            confidence=candidate["confidence"],
-                            extra_metadata={
-                                "extraction_reason": candidate["reason"],
-                                "evidence_ids": [str(item.id)],
-                            },
-                        )
-                        db.add(entity)
-                        db.flush()
-                        index[key] = entity
-                        created.append(str(entity.id))
-                    else:
-                        metadata = dict(entity.extra_metadata or {})
-                        references = list(metadata.get("evidence_ids", []))
-                        metadata["evidence_ids"] = list(dict.fromkeys([*references, str(item.id)]))
-                        entity.extra_metadata = metadata
-                    item.entity_ids = list(dict.fromkeys([*item.entity_ids, str(entity.id)]))
-            job.result = {"created_entity_ids": created, "count": len(created)}
+                    key = (kind, canonicalize_indicator(kind, candidate["value"]))
+                    draft = index.get(key)
+                    if draft is None:
+                        candidate_id = _candidate_id("entity", str(job.case_id), kind, key[1])
+                        draft = {
+                            "id": candidate_id, "kind": "entity", "type": kind,
+                            "value": candidate["value"], "evidence_ids": [],
+                            "confidence": candidate["confidence"], "reason": candidate["reason"],
+                        }
+                        index[key] = draft
+                        candidates.append(draft)
+                    draft["evidence_ids"] = list(dict.fromkeys([*draft["evidence_ids"], evidence_id]))
+                    mentions.setdefault(evidence_id, []).append(draft["id"])
+
+            # Co-mention is only a reviewable association, never an identity claim.
+            relationships: dict[tuple[str, str], dict] = {}
+            for evidence_id, referenced in mentions.items():
+                unique = list(dict.fromkeys(referenced))
+                for left_index, source_ref in enumerate(unique[:25]):
+                    for target_ref in unique[left_index + 1:25]:
+                        pair = tuple(sorted((source_ref, target_ref)))
+                        relationship = relationships.get(pair)
+                        if relationship is None:
+                            relationship = {
+                                "id": _candidate_id("relationship", str(job.case_id), *pair),
+                                "kind": "relationship", "type": "LINKED_TO",
+                                "source_ref": pair[0], "target_ref": pair[1],
+                                "evidence_ids": [], "confidence": 0.55,
+                                "reason": (
+                                    "The indicators were mentioned in the same evidence item. "
+                                    "Co-mention suggests review only and is not an identity claim."
+                                ),
+                            }
+                            relationships[pair] = relationship
+                            candidates.append(relationship)
+                        relationship["evidence_ids"] = list(dict.fromkeys([
+                            *relationship["evidence_ids"], evidence_id
+                        ]))
+                        if len(candidates) >= 500:
+                            break
+                    if len(candidates) >= 500:
+                        break
+                if len(candidates) >= 500:
+                    break
+            job.result = _review_result(candidates, input_options)
         elif job.mode == "correlate":
             drafts = correlate([as_dict(x) for x in entities], [as_dict(x) for x in evidence])
-            created = []
-            existing = {
-                (str(rel.source_id), str(rel.target_id), rel.type,
-                 tuple(sorted(str(value) for value in rel.evidence_ids)), rel.attribution)
-                for rel in db.scalars(select(Relationship).where(Relationship.case_id == job.case_id))
-            }
+            candidates = []
             for draft in drafts:
-                key = (
-                    str(draft["source_entity_id"]), str(draft["target_entity_id"]), "LINKED_TO",
-                    tuple(sorted(str(value) for value in draft["evidence_ids"])), "ALGORITHM",
-                )
-                if key in existing:
-                    continue
-                rel = Relationship(
-                    case_id=job.case_id, source_id=uuid.UUID(draft["source_entity_id"]),
-                    target_id=uuid.UUID(draft["target_entity_id"]), type="LINKED_TO",
-                    confidence=draft["confidence"], evidence_ids=draft["evidence_ids"],
-                    explanation=draft["reason"], attribution="ALGORITHM",
-                    created_by=job_owner(db, job.case_id),
-                )
-                db.add(rel); db.flush(); created.append(str(rel.id)); existing.add(key)
-            job.result = {"created_relationship_ids": created, "count": len(created)}
+                evidence_ids = sorted(str(value) for value in draft["evidence_ids"])
+                source_ref, target_ref = sorted((
+                    str(draft["source_entity_id"]), str(draft["target_entity_id"])
+                ))
+                candidates.append({
+                    "id": _candidate_id(
+                        "relationship", str(job.case_id), source_ref, target_ref,
+                        str(draft.get("type", "LINKED_TO")), *evidence_ids,
+                    ),
+                    "kind": "relationship", "type": str(draft.get("type", "LINKED_TO")),
+                    "source_ref": source_ref, "target_ref": target_ref,
+                    "evidence_ids": evidence_ids, "confidence": draft["confidence"],
+                    "reason": draft["reason"],
+                })
+            job.result = _review_result(candidates, input_options)
         else:
             job.result = asyncio.run(summarize_evidence([as_dict(x) for x in evidence]))
         # Fence stale workers: all derived rows are in this transaction and are
@@ -117,10 +143,22 @@ def _normalize_type(value: str) -> str:
     return value
 
 
-def job_owner(db, case_id):
-    from .models import Case
-    case = db.get(Case, case_id)
-    return case.created_by_id
+def _candidate_id(*parts: str) -> str:
+    canonical = "\x1f".join(str(part).strip() for part in parts)
+    return "cand_" + hashlib.sha256(canonical.encode()).hexdigest()[:32]
+
+
+def _review_result(candidates: list[dict], input_options: dict | None = None) -> dict:
+    result = {
+        "review_required": True,
+        "candidates": candidates,
+        "model_version": "argus-deterministic-2025-01",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(candidates),
+    }
+    if input_options:
+        result["input"] = input_options
+    return result
 
 
 def claim_one():

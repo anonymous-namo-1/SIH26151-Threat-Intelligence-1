@@ -31,6 +31,22 @@ export const GetDashboardResponse = zod.object({
   "open_cases": zod.number().int(),
   "evidence_count": zod.number().int(),
   "entity_count": zod.number().int(),
+  "critical_cases": zod.number().int().optional(),
+  "relationship_count": zod.number().int().optional(),
+  "pending_reviews": zod.number().int().optional(),
+  "high_confidence_correlations": zod.array(zod.object({
+  "job_id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "confidence": zod.number(),
+  "explanation": zod.string(),
+  "generated_at": zod.coerce.date()
+})).optional(),
+  "recent_activity": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "action": zod.string(),
+  "created_at": zod.coerce.date()
+})).optional(),
   "recent_cases": zod.array(zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
@@ -317,11 +333,11 @@ export const SearchIntelligenceResponse = zod.object({
   "updated_at": zod.coerce.date()
 })),
   "groups": zod.array(zod.object({
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "entities": zod.array(zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -350,7 +366,7 @@ export const listEntitiesResponseConfidenceMax = 1;
 export const ListEntitiesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -390,7 +406,7 @@ export const createEntityBodyTagsMax = 50;
 
 
 export const CreateEntityBody = zod.object({
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string().min(1).max(createEntityBodyValueMax),
   "aliases": zod.array(zod.string().max(createEntityBodyAliasesItemMax)).max(createEntityBodyAliasesMax).optional(),
   "description": zod.string().max(createEntityBodyDescriptionMax).optional(),
@@ -410,7 +426,7 @@ export const createEntityResponseConfidenceMax = 1;
 export const CreateEntityResponse = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -437,7 +453,7 @@ export const getEntityResponseConfidenceMax = 1;
 export const GetEntityResponse = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -495,7 +511,7 @@ export const updateEntityResponseConfidenceMax = 1;
 export const UpdateEntityResponse = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -631,7 +647,7 @@ export const getCaseGraphQueryMinConfidenceMax = 1;
 
 export const GetCaseGraphQueryParams = zod.object({
   "min_confidence": zod.coerce.number().min(getCaseGraphQueryMinConfidenceMin).max(getCaseGraphQueryMinConfidenceMax).default(getCaseGraphQueryMinConfidenceDefault),
-  "entity_type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']).optional(),
+  "entity_type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']).optional(),
   "relationship_type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']).optional()
 })
 
@@ -645,7 +661,7 @@ export const GetCaseGraphResponse = zod.object({
   "nodes": zod.array(zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -701,7 +717,7 @@ export const FindEntityPathResponse = zod.object({
   "nodes": zod.array(zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string(),
   "aliases": zod.array(zod.string()),
   "description": zod.string(),
@@ -920,14 +936,19 @@ export const AnalyzeCaseParams = zod.object({
   "case_id": zod.coerce.string().uuid()
 })
 
+export const analyzeCaseBodyEvidenceIdsMax = 500;
+
+
+
 export const AnalyzeCaseBody = zod.object({
-  "mode": zod.enum(['extract', 'correlate', 'summarize'])
+  "mode": zod.enum(['extract', 'correlate', 'summarize']),
+  "evidence_ids": zod.array(zod.string().uuid()).min(1).max(analyzeCaseBodyEvidenceIdsMax).optional()
 })
 
 export const AnalyzeCaseResponse = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "mode": zod.enum(['extract', 'correlate', 'summarize']),
+  "mode": zod.string(),
   "status": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'RETRYING']),
   "attempts": zod.number().int(),
   "max_attempts": zod.number().int(),
@@ -948,7 +969,7 @@ export const GetJobParams = zod.object({
 export const GetJobResponse = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "mode": zod.enum(['extract', 'correlate', 'summarize']),
+  "mode": zod.string(),
   "status": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'RETRYING']),
   "attempts": zod.number().int(),
   "max_attempts": zod.number().int(),
@@ -969,7 +990,7 @@ export const ListCaseJobsParams = zod.object({
 export const ListCaseJobsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
-  "mode": zod.enum(['extract', 'correlate', 'summarize']),
+  "mode": zod.string(),
   "status": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'RETRYING']),
   "attempts": zod.number().int(),
   "max_attempts": zod.number().int(),
@@ -1014,8 +1035,15 @@ export const CompareEntitiesResponse = zod.object({
   "factor": zod.string(),
   "score": zod.number().min(compareEntitiesResponseFactorsItemScoreMin).max(compareEntitiesResponseFactorsItemScoreMax),
   "explanation": zod.string(),
-  "evidence_ids": zod.array(zod.string().uuid())
-}))
+  "evidence_ids": zod.array(zod.string().uuid()),
+  "status": zod.string().optional(),
+  "weight": zod.number().optional(),
+  "contribution": zod.number().optional()
+})),
+  "model_version": zod.string().optional(),
+  "generated_at": zod.coerce.date().nullish(),
+  "unknown_factors": zod.array(zod.string()).optional(),
+  "contradictions": zod.array(zod.string()).optional()
 })
 
 
@@ -1279,7 +1307,7 @@ export const FinalizeUploadBody = zod.object({
   "reliability": zod.enum(['A', 'B', 'C', 'D', 'E', 'F', 'UNKNOWN', 'LOW', 'MEDIUM', 'HIGH', 'VERIFIED']),
   "notes": zod.string().max(finalizeUploadBodyNotesMax).optional(),
   "entities": zod.array(zod.object({
-  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR']),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
   "value": zod.string().min(1).max(finalizeUploadBodyEntitiesItemValueMax)
 })).max(finalizeUploadBodyEntitiesMax).optional()
 })
@@ -1329,6 +1357,202 @@ export const SeedWorkspaceResponse = zod.object({
 })),
   "created_at": zod.coerce.date(),
   "updated_at": zod.coerce.date()
+})
+
+
+export const RunCaseModuleParams = zod.object({
+  "case_id": zod.coerce.string().uuid()
+})
+
+export const runCaseModuleBodyCorpusLeftMax = 50000;
+
+export const runCaseModuleBodyCorpusRightMax = 50000;
+
+
+
+export const RunCaseModuleBody = zod.object({
+  "module": zod.enum(['persona', 'stylometry', 'temporal', 'wallet', 'infrastructure', 'alias', 'relationship', 'reliability', 'contradiction', 'timeline']),
+  "left_id": zod.string().uuid().optional(),
+  "right_id": zod.string().uuid().optional(),
+  "entity_id": zod.string().uuid().optional(),
+  "corpus_left": zod.string().max(runCaseModuleBodyCorpusLeftMax).optional(),
+  "corpus_right": zod.string().max(runCaseModuleBodyCorpusRightMax).optional(),
+  "start": zod.coerce.date().optional(),
+  "end": zod.coerce.date().optional()
+})
+
+export const runCaseModuleResponseConfidenceMin = 0;
+export const runCaseModuleResponseConfidenceMax = 100;
+
+
+
+export const RunCaseModuleResponse = zod.object({
+  "job_id": zod.string().uuid().optional(),
+  "module": zod.enum(['persona', 'stylometry', 'temporal', 'wallet', 'infrastructure', 'alias', 'relationship', 'reliability', 'contradiction', 'timeline']),
+  "model_version": zod.string(),
+  "generated_at": zod.coerce.date(),
+  "explanation": zod.string(),
+  "evidence_ids": zod.array(zod.string()),
+  "confidence": zod.number().min(runCaseModuleResponseConfidenceMin).max(runCaseModuleResponseConfidenceMax).nullable(),
+  "positive_evidence": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.string(),
+  "score": zod.number().nullable(),
+  "weight": zod.number(),
+  "contribution": zod.number(),
+  "reason": zod.string(),
+  "evidence_ids": zod.array(zod.string())
+})),
+  "negative_evidence": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.string(),
+  "score": zod.number().nullable(),
+  "weight": zod.number(),
+  "contribution": zod.number(),
+  "reason": zod.string(),
+  "evidence_ids": zod.array(zod.string())
+})),
+  "unknown_factors": zod.array(zod.string()),
+  "data": zod.record(zod.string(), zod.unknown())
+})
+
+
+export const GetScoringRulesParams = zod.object({
+  "case_id": zod.coerce.string().uuid()
+})
+
+export const GetScoringRulesResponse = zod.object({
+  "weights": zod.record(zod.string(), zod.number()),
+  "model_version": zod.string(),
+  "updated_at": zod.coerce.date().nullable()
+})
+
+
+export const SaveScoringRulesParams = zod.object({
+  "case_id": zod.coerce.string().uuid()
+})
+
+export const saveScoringRulesBodyWeightsMinOne = -50;
+export const saveScoringRulesBodyWeightsMaxOne = 50;
+
+
+
+export const SaveScoringRulesBody = zod.object({
+  "weights": zod.record(zod.string(), zod.number().min(saveScoringRulesBodyWeightsMinOne).max(saveScoringRulesBodyWeightsMaxOne))
+})
+
+export const SaveScoringRulesResponse = zod.object({
+  "weights": zod.record(zod.string(), zod.number()),
+  "model_version": zod.string(),
+  "updated_at": zod.coerce.date().nullable()
+})
+
+
+export const ReviewAnalysisJobParams = zod.object({
+  "job_id": zod.coerce.string().uuid()
+})
+
+export const reviewAnalysisJobBodyDecisionsItemValueMax = 2000;
+
+export const reviewAnalysisJobBodyDecisionsItemExplanationMax = 10000;
+
+export const reviewAnalysisJobBodyDecisionsMax = 500;
+
+
+
+export const ReviewAnalysisJobBody = zod.object({
+  "decisions": zod.array(zod.object({
+  "candidate_id": zod.string(),
+  "action": zod.enum(['accept', 'reject']),
+  "type": zod.string().optional(),
+  "value": zod.string().min(1).max(reviewAnalysisJobBodyDecisionsItemValueMax).optional(),
+  "explanation": zod.string().max(reviewAnalysisJobBodyDecisionsItemExplanationMax).optional()
+})).min(1).max(reviewAnalysisJobBodyDecisionsMax)
+})
+
+export const ReviewAnalysisJobResponse = zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "mode": zod.string(),
+  "status": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'RETRYING']),
+  "attempts": zod.number().int(),
+  "max_attempts": zod.number().int(),
+  "result": zod.union([zod.record(zod.string(), zod.unknown()),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "available_at": zod.coerce.date(),
+  "lease_token": zod.string().uuid().nullable(),
+  "lease_expires_at": zod.coerce.date().nullable(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+export const AskCaseAssistantParams = zod.object({
+  "case_id": zod.coerce.string().uuid()
+})
+
+export const askCaseAssistantBodyQuestionMax = 2000;
+
+
+
+export const AskCaseAssistantBody = zod.object({
+  "question": zod.string().min(1).max(askCaseAssistantBodyQuestionMax)
+})
+
+export const AskCaseAssistantResponse = zod.object({
+  "status": zod.string(),
+  "answer": zod.string(),
+  "findings": zod.array(zod.object({
+  "text": zod.string(),
+  "evidence_ids": zod.array(zod.string()),
+  "quotes": zod.array(zod.object({
+  "evidence_id": zod.string(),
+  "quote": zod.string()
+})).optional()
+})),
+  "evidence_ids": zod.array(zod.string()),
+  "uncertainties": zod.array(zod.string()),
+  "model_version": zod.string(),
+  "generated_at": zod.coerce.date()
+})
+
+
+export const ImportTransactionsParams = zod.object({
+  "case_id": zod.coerce.string().uuid()
+})
+
+export const importTransactionsBodyTransactionsItemHashMax = 256;
+
+export const importTransactionsBodyTransactionsItemFromAddressMax = 256;
+
+export const importTransactionsBodyTransactionsItemToAddressMax = 256;
+
+export const importTransactionsBodyTransactionsItemAmountRegExp = new RegExp('^\\d{1,30}(\\.\\d{1,18})?$');
+export const importTransactionsBodyTransactionsItemAssetMax = 30;
+
+export const importTransactionsBodyTransactionsItemLabelsMax = 20;
+
+export const importTransactionsBodyTransactionsMax = 200;
+
+
+
+export const ImportTransactionsBody = zod.object({
+  "evidence_id": zod.string().uuid(),
+  "transactions": zod.array(zod.object({
+  "hash": zod.string().min(1).max(importTransactionsBodyTransactionsItemHashMax),
+  "from_address": zod.string().min(1).max(importTransactionsBodyTransactionsItemFromAddressMax),
+  "to_address": zod.string().min(1).max(importTransactionsBodyTransactionsItemToAddressMax),
+  "amount": zod.string().regex(importTransactionsBodyTransactionsItemAmountRegExp),
+  "asset": zod.string().min(1).max(importTransactionsBodyTransactionsItemAssetMax),
+  "timestamp": zod.coerce.date(),
+  "labels": zod.array(zod.string()).max(importTransactionsBodyTransactionsItemLabelsMax).optional()
+})).min(1).max(importTransactionsBodyTransactionsMax)
+})
+
+export const ImportTransactionsResponse = zod.object({
+  "created": zod.number().int(),
+  "existing": zod.number().int(),
+  "entity_ids": zod.array(zod.string().uuid())
 })
 
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .normalization import canonicalize_indicator
+
 _STRONG_TYPES = {
     "EMAIL", "DOMAIN", "IP_ADDRESS", "ONION_SERVICE", "URL", "PGP_FINGERPRINT",
     "PGP_KEY", "FILE_HASH", "BITCOIN_WALLET", "ETHEREUM_WALLET",
@@ -36,14 +38,16 @@ def correlate(entities: list[dict], evidence: list[dict]) -> list[dict]:
         if not isinstance(left, dict) or left.get("id") is None:
             continue
         left_type = str(left.get("type", "")).upper()
-        left_value = str(left.get("value", "")).strip().casefold()
+        left_value = canonicalize_indicator(left_type, str(left.get("value", "")))
         if left_type not in _STRONG_TYPES or left_type in _HUMAN_TYPES or not left_value:
             continue
         for right in entities[index + 1 : 500]:
             if not isinstance(right, dict) or right.get("id") is None:
                 continue
             right_type = str(right.get("type", "")).upper()
-            if right_type != left_type or str(right.get("value", "")).strip().casefold() != left_value:
+            if right_type != left_type or canonicalize_indicator(
+                right_type, str(right.get("value", ""))
+            ) != left_value:
                 continue
             left_id, right_id = str(left["id"]), str(right["id"])
             if left_id == right_id:

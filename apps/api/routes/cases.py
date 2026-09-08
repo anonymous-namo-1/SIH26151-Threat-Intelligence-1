@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..auth import current_user
 from ..database import get_db
-from ..models import Case, Entity, Evidence, User
+from ..models import Audit, Case, Entity, Evidence, Job, Relationship, User
 from ..rbac import PERMISSIONS, audit, get_visible_case, require, visible_cases_query
 from ..schemas import CaseInput, CaseOut, CaseUpdate, EntityOut, UserOut
 
@@ -95,8 +95,31 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
     opened = db.scalar(select(func.count()).select_from(Case).where(Case.id.in_(select(ids.c.id)), Case.status.notin_(["CLOSED", "ARCHIVED"]))) or 0
     evidence = db.scalar(select(func.count()).select_from(Evidence).where(Evidence.case_id.in_(select(ids.c.id)))) or 0
     entities = db.scalar(select(func.count()).select_from(Entity).where(Entity.case_id.in_(select(ids.c.id)))) or 0
+    critical = db.scalar(select(func.count()).select_from(Case).where(
+        Case.id.in_(select(ids.c.id)), Case.priority == "CRITICAL",
+        Case.status.notin_(["CLOSED", "ARCHIVED"]))) or 0
+    relationships = db.scalar(select(func.count()).select_from(Relationship).where(
+        Relationship.case_id.in_(select(ids.c.id)))) or 0
+    review_results = db.scalars(select(Job.result).where(
+        Job.case_id.in_(select(ids.c.id)), Job.status == "SUCCEEDED",
+        Job.result["review_required"].as_boolean().is_(True)))
+    pending = sum(sum(not candidate.get("decision") for candidate in (result or {}).get("candidates", []))
+                  for result in review_results)
+    activity = db.scalars(select(Audit).where(Audit.case_id.in_(select(ids.c.id)))
+                         .order_by(Audit.created_at.desc()).limit(10))
+    correlations = db.scalars(select(Job).where(
+        Job.case_id.in_(select(ids.c.id)), Job.mode == "module", Job.status == "SUCCEEDED",
+        Job.result["module"].as_string() == "persona",
+        Job.result["confidence"].as_float() >= 70).order_by(Job.created_at.desc()).limit(10))
     return {"total_cases": total, "open_cases": opened, "evidence_count": evidence,
-            "entity_count": entities, "recent_cases": [CaseOut.model_validate(x) for x in all_cases]}
+            "entity_count": entities, "recent_cases": [CaseOut.model_validate(x) for x in all_cases],
+            "critical_cases": critical, "relationship_count": relationships, "pending_reviews": pending,
+            "recent_activity": [{"id": item.id, "case_id": item.case_id, "action": item.action,
+                                 "created_at": item.created_at} for item in activity],
+            "high_confidence_correlations": [
+                {"job_id": item.id, "case_id": item.case_id, "confidence": item.result["confidence"],
+                 "explanation": item.result["explanation"], "generated_at": item.result["generated_at"]}
+                for item in correlations if item.result.get("evidence_ids")]}
 
 
 @router.get("/search")

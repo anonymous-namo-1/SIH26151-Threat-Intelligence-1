@@ -6,7 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { useCaseWorkspace } from '@/hooks/use-case-workspace';
 
 export function Dashboard() {
-  const { data: dashboard, isLoading, isError } = useGetDashboard();
+  const { data: dashboard, isLoading, isError, dataUpdatedAt } = useGetDashboard();
   const seed = useSeedWorkspace();
   const queryClient = useQueryClient();
   const { setCaseId } = useCaseWorkspace();
@@ -62,7 +62,7 @@ export function Dashboard() {
           )}
           <div>
             <div className="text-sm font-mono text-muted-foreground">LAST UPDATED</div>
-            <div className="text-sm font-medium">{new Date().toISOString().split('.')[0]}Z</div>
+            <div className="text-sm font-medium">{new Date(dataUpdatedAt).toISOString().split('.')[0]}Z</div>
           </div>
         </div>
       </div>
@@ -70,8 +70,18 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPI title="Total Cases" value={dashboard.total_cases} />
         <KPI title="Open Cases" value={dashboard.open_cases} />
+        <KPI title="Critical Cases" value={dashboard.critical_cases || 0} variant="destructive" />
+        <KPI title="Pending Reviews" value={dashboard.pending_reviews || 0} variant="warning" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPI title="Entities Tracked" value={dashboard.entity_count} />
+        <KPI title="Relationships" value={dashboard.relationship_count || 0} />
         <KPI title="Evidence Collected" value={dashboard.evidence_count} />
+        <div className="bg-card border border-border rounded-lg p-4 shadow-sm flex flex-col justify-between items-center text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleContextNav('/analysis', '')}>
+          <Activity className="w-6 h-6 mb-2 text-primary" />
+          <span className="text-sm font-medium">Analysis Engine</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,34 +148,68 @@ export function Dashboard() {
         <div className="space-y-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
-            System Status
+            Insights & Status
           </h2>
+
+          {dashboard.high_confidence_correlations && dashboard.high_confidence_correlations.length > 0 && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg shadow-sm p-4 space-y-3 mb-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">High Confidence Matches</h3>
+              {dashboard.high_confidence_correlations.map(corr => (
+                <div key={corr.job_id} className="text-sm pb-2 border-b border-border/50 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-medium text-foreground">Correlation Job</span>
+                    <span className="font-mono text-emerald-500 font-bold">{corr.confidence.toFixed(1)}%</span>
+                  </div>
+                  <p className="text-muted-foreground text-xs line-clamp-2">{corr.explanation}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="bg-card border border-border rounded-lg shadow-sm p-4 space-y-4">
              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">API Connection</span>
-                <span className="text-green-500 font-medium">Online</span>
+                <span className="text-emerald-500 font-medium">Online</span>
              </div>
              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Database</span>
-                <span className="text-green-500 font-medium">Connected</span>
+                <span className="text-emerald-500 font-medium">Connected</span>
              </div>
              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Storage Services</span>
-                <span className="text-green-500 font-medium">Active</span>
+                <span className="text-muted-foreground">Analysis Engine</span>
+                <span className="text-emerald-500 font-medium">Active</span>
              </div>
           </div>
+
+          {dashboard.recent_activity && dashboard.recent_activity.length > 0 && (
+            <div className="bg-card border border-border rounded-lg shadow-sm p-4 space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent Activity</h3>
+              {dashboard.recent_activity.map(activity => (
+                <div key={activity.id} className="text-sm pb-2 border-b border-border/50 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-medium text-foreground">{activity.action}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(activity.created_at).toISOString().split('T')[0]}</span>
+                  </div>
+                  <div className="flex gap-2 text-xs font-mono text-muted-foreground">
+                    <span>Case: <Link href={`/cases/${activity.case_id}`} className="hover:underline">{activity.case_id.substring(0, 8)}</Link></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function KPI({ title, value }: { title: string, value: string | number }) {
+function KPI({ title, value, variant }: { title: string, value: string | number, variant?: "default" | "destructive" | "warning" }) {
+  const color = variant === "destructive" ? "text-destructive" : variant === "warning" ? "text-warning" : "text-foreground";
   return (
     <div className="bg-card border border-border rounded-lg p-4 shadow-sm flex flex-col justify-between">
       <div className="text-sm font-medium text-muted-foreground">{title}</div>
       <div className="mt-2 flex items-baseline gap-2">
-        <div className="text-3xl font-bold tracking-tight">{value}</div>
+        <div className={`text-3xl font-bold tracking-tight ${color}`}>{value}</div>
       </div>
     </div>
   );

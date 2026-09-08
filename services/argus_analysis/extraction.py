@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
 
+from .normalization import canonicalize_indicator
+
 MAX_INPUT_CHARS = 100_000
 MAX_RESULTS = 256
 
@@ -35,6 +37,12 @@ _SOLANA_CONTEXT = re.compile(
     r"(?i)\b(?:solana|sol(?:\s+wallet|\s+address))\s*[:=]?\s*([1-9A-HJ-NP-Za-km-z]{32,44})\b"
 )
 _IP_TOKEN = re.compile(r"(?<![\w])(?:\[[0-9A-Fa-f:.%]+\]|[0-9A-Fa-f:.%]{3,})(?![\w])")
+_DATE = re.compile(
+    r"(?<!\d)(?:"
+    r"\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])"
+    r"|(?:0[1-9]|[12]\d|3[01])/(?:0[1-9]|1[0-2])/\d{4}"
+    r")(?!\d)"
+)
 
 
 def _overlaps(span: tuple[int, int], occupied: list[tuple[int, int]]) -> bool:
@@ -137,9 +145,19 @@ def extract_entities(text: str) -> list[dict]:
         if not _overlaps(match.span(), occupied):
             add("USERNAME", match.group(1), 0.78, "Explicit @handle syntax matched; platform and ownership are unknown", *match.span())
 
+    for match in _DATE.finditer(text):
+        if not _overlaps(match.span(), occupied):
+            add(
+                "DATE",
+                match.group(),
+                0.9,
+                "Calendar date syntax matched; no claim is made about the event it describes",
+                *match.span(),
+            )
+
     deduplicated: dict[tuple[str, str], _Candidate] = {}
     for candidate in sorted(candidates, key=lambda c: (c.start, -c.confidence, c.type)):
-        key = (candidate.type, candidate.value.casefold())
+        key = (candidate.type, canonicalize_indicator(candidate.type, candidate.value))
         deduplicated.setdefault(key, candidate)
         if len(deduplicated) >= MAX_RESULTS:
             break

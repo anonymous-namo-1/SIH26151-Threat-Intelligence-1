@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { Clock, RefreshCcw, FilterX } from 'lucide-react';
+import { Clock, RefreshCcw, FilterX, Activity } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link } from 'wouter';
 
 function TimelineView() {
   const { caseId } = useCaseWorkspace();
@@ -138,11 +139,18 @@ function TimelineView() {
 export function Timeline() {
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-2">
-          <Clock className="h-7 w-7" /> Case Timeline
-        </h1>
-        <p className="text-muted-foreground">Chronological sequence of evidentiary events and actor observations.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-2">
+            <Clock className="h-7 w-7" /> Case Timeline
+          </h1>
+          <p className="text-muted-foreground">Chronological sequence of evidentiary events and actor observations.</p>
+        </div>
+        <Button variant="secondary" asChild>
+          <Link href={`/analysis?module=temporal`}>
+            <Activity className="h-4 w-4 mr-2" /> Run Analysis
+          </Link>
+        </Button>
       </div>
       <CaseScope>
         <TimelineView />

@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   LogOut,
   Menu,
+  ActivitySquare,
   X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Investigations', path: '/investigations', icon: Search },
+    { name: 'Analysis', path: '/analysis', icon: ActivitySquare },
     { name: 'Global Search', path: '/search', icon: Search },
     { name: 'Graph Analysis', path: '/graph', icon: Network },
     { name: 'Personas', path: '/personas', icon: Users },

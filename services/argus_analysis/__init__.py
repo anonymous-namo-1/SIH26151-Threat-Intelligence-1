@@ -5,6 +5,8 @@ describe extraction/correlation support and are not probabilities of guilt.
 """
 
 from .comparison import compare_entities
+from .comparison import DEFAULT_WEIGHTS, MODEL_VERSION
+from .modules import run_module
 from .correlation import correlate
 from .embeddings import CosineSimilarity, TokenHashEmbedding
 from .errors import AnalysisError, InvalidAIResponseError, MissingAIConfigurationError
@@ -23,6 +25,9 @@ __all__ = [
     "extract_entities",
     "correlate",
     "compare_entities",
+    "run_module",
+    "DEFAULT_WEIGHTS",
+    "MODEL_VERSION",
     "summarize_evidence",
     "set_summarizer_provider",
     "EmbeddingProvider",

@@ -21,6 +21,8 @@ import type {
 
 import type {
   AnalysisInput,
+  AssistantInput,
+  AssistantResult,
   AuditPage,
   Capabilities,
   Case,
@@ -46,6 +48,8 @@ import type {
   ListAuditEventsParams,
   ListCasesParams,
   Me,
+  ModuleInput,
+  ModuleResult,
   Relationship,
   RelationshipInput,
   RelationshipUpdate,
@@ -53,11 +57,16 @@ import type {
   ReportExport,
   ReportInput,
   ReportUpdate,
+  ReviewInput,
   SavedView,
   SavedViewInput,
+  ScoringRuleInput,
+  ScoringRules,
   SearchIntelligenceParams,
   SearchResults,
   TimelineEvent,
+  TransactionImportInput,
+  TransactionImportResult,
   UploadFinalizeInput,
   UploadInput,
   UploadTicket,
@@ -3247,5 +3256,406 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getSeedWorkspaceMutationOptions(options));
+    }
+
+export const getRunCaseModuleUrl = (caseId: string,) => {
+
+
+
+
+  return `/api/argus/cases/${caseId}/modules`
+}
+
+export const runCaseModule = async (caseId: string,
+    moduleInput: ModuleInput, options?: Parameters<typeof customFetch>[1]): Promise<ModuleResult> => {
+
+  return customFetch<ModuleResult>(getRunCaseModuleUrl(caseId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(moduleInput)
+  }
+);}
+
+
+
+
+
+export const getRunCaseModuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runCaseModule>>, TError,{caseId: string;data: BodyType<ModuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runCaseModule>>, TError,{caseId: string;data: BodyType<ModuleInput>}, TContext> => {
+
+const mutationKey = ['runCaseModule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runCaseModule>>, {caseId: string;data: BodyType<ModuleInput>}> = (props) => {
+          const {caseId,data} = props ?? {};
+
+          return  runCaseModule(caseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunCaseModuleMutationResult = NonNullable<Awaited<ReturnType<typeof runCaseModule>>>
+    export type RunCaseModuleMutationBody = BodyType<ModuleInput>
+    export type RunCaseModuleMutationError = ErrorType<unknown>
+
+    export const useRunCaseModule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runCaseModule>>, TError,{caseId: string;data: BodyType<ModuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runCaseModule>>,
+        TError,
+        {caseId: string;data: BodyType<ModuleInput>},
+        TContext
+      > => {
+      return useMutation(getRunCaseModuleMutationOptions(options));
+    }
+
+export const getGetScoringRulesUrl = (caseId: string,) => {
+
+
+
+
+  return `/api/argus/cases/${caseId}/scoring-rules`
+}
+
+export const getScoringRules = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<ScoringRules> => {
+
+  return customFetch<ScoringRules>(getGetScoringRulesUrl(caseId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScoringRulesQueryKey = (caseId: string,) => {
+    return [
+    `/api/argus/cases/${caseId}/scoring-rules`
+    ] as const;
+    }
+
+
+export const getGetScoringRulesQueryOptions = <TData = Awaited<ReturnType<typeof getScoringRules>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScoringRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScoringRulesQueryKey(caseId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScoringRules>>> = ({ signal }) => getScoringRules(caseId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: caseId !== null && caseId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScoringRules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScoringRulesQueryResult = NonNullable<Awaited<ReturnType<typeof getScoringRules>>>
+export type GetScoringRulesQueryError = ErrorType<unknown>
+
+
+
+export function useGetScoringRules<TData = Awaited<ReturnType<typeof getScoringRules>>, TError = ErrorType<unknown>>(
+ caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScoringRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScoringRulesQueryOptions(caseId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveScoringRulesUrl = (caseId: string,) => {
+
+
+
+
+  return `/api/argus/cases/${caseId}/scoring-rules`
+}
+
+export const saveScoringRules = async (caseId: string,
+    scoringRuleInput: ScoringRuleInput, options?: Parameters<typeof customFetch>[1]): Promise<ScoringRules> => {
+
+  return customFetch<ScoringRules>(getSaveScoringRulesUrl(caseId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scoringRuleInput)
+  }
+);}
+
+
+
+
+
+export const getSaveScoringRulesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveScoringRules>>, TError,{caseId: string;data: BodyType<ScoringRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveScoringRules>>, TError,{caseId: string;data: BodyType<ScoringRuleInput>}, TContext> => {
+
+const mutationKey = ['saveScoringRules'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveScoringRules>>, {caseId: string;data: BodyType<ScoringRuleInput>}> = (props) => {
+          const {caseId,data} = props ?? {};
+
+          return  saveScoringRules(caseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveScoringRulesMutationResult = NonNullable<Awaited<ReturnType<typeof saveScoringRules>>>
+    export type SaveScoringRulesMutationBody = BodyType<ScoringRuleInput>
+    export type SaveScoringRulesMutationError = ErrorType<unknown>
+
+    export const useSaveScoringRules = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveScoringRules>>, TError,{caseId: string;data: BodyType<ScoringRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveScoringRules>>,
+        TError,
+        {caseId: string;data: BodyType<ScoringRuleInput>},
+        TContext
+      > => {
+      return useMutation(getSaveScoringRulesMutationOptions(options));
+    }
+
+export const getReviewAnalysisJobUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/argus/jobs/${jobId}/review`
+}
+
+export const reviewAnalysisJob = async (jobId: string,
+    reviewInput: ReviewInput, options?: Parameters<typeof customFetch>[1]): Promise<Job> => {
+
+  return customFetch<Job>(getReviewAnalysisJobUrl(jobId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewAnalysisJobMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewAnalysisJob>>, TError,{jobId: string;data: BodyType<ReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewAnalysisJob>>, TError,{jobId: string;data: BodyType<ReviewInput>}, TContext> => {
+
+const mutationKey = ['reviewAnalysisJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewAnalysisJob>>, {jobId: string;data: BodyType<ReviewInput>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  reviewAnalysisJob(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewAnalysisJobMutationResult = NonNullable<Awaited<ReturnType<typeof reviewAnalysisJob>>>
+    export type ReviewAnalysisJobMutationBody = BodyType<ReviewInput>
+    export type ReviewAnalysisJobMutationError = ErrorType<unknown>
+
+    export const useReviewAnalysisJob = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewAnalysisJob>>, TError,{jobId: string;data: BodyType<ReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewAnalysisJob>>,
+        TError,
+        {jobId: string;data: BodyType<ReviewInput>},
+        TContext
+      > => {
+      return useMutation(getReviewAnalysisJobMutationOptions(options));
+    }
+
+export const getAskCaseAssistantUrl = (caseId: string,) => {
+
+
+
+
+  return `/api/argus/cases/${caseId}/assistant`
+}
+
+export const askCaseAssistant = async (caseId: string,
+    assistantInput: AssistantInput, options?: Parameters<typeof customFetch>[1]): Promise<AssistantResult> => {
+
+  return customFetch<AssistantResult>(getAskCaseAssistantUrl(caseId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assistantInput)
+  }
+);}
+
+
+
+
+
+export const getAskCaseAssistantMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof askCaseAssistant>>, TError,{caseId: string;data: BodyType<AssistantInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof askCaseAssistant>>, TError,{caseId: string;data: BodyType<AssistantInput>}, TContext> => {
+
+const mutationKey = ['askCaseAssistant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof askCaseAssistant>>, {caseId: string;data: BodyType<AssistantInput>}> = (props) => {
+          const {caseId,data} = props ?? {};
+
+          return  askCaseAssistant(caseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AskCaseAssistantMutationResult = NonNullable<Awaited<ReturnType<typeof askCaseAssistant>>>
+    export type AskCaseAssistantMutationBody = BodyType<AssistantInput>
+    export type AskCaseAssistantMutationError = ErrorType<unknown>
+
+    export const useAskCaseAssistant = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof askCaseAssistant>>, TError,{caseId: string;data: BodyType<AssistantInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof askCaseAssistant>>,
+        TError,
+        {caseId: string;data: BodyType<AssistantInput>},
+        TContext
+      > => {
+      return useMutation(getAskCaseAssistantMutationOptions(options));
+    }
+
+export const getImportTransactionsUrl = (caseId: string,) => {
+
+
+
+
+  return `/api/argus/cases/${caseId}/transactions/import`
+}
+
+export const importTransactions = async (caseId: string,
+    transactionImportInput: TransactionImportInput, options?: Parameters<typeof customFetch>[1]): Promise<TransactionImportResult> => {
+
+  return customFetch<TransactionImportResult>(getImportTransactionsUrl(caseId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(transactionImportInput)
+  }
+);}
+
+
+
+
+
+export const getImportTransactionsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importTransactions>>, TError,{caseId: string;data: BodyType<TransactionImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importTransactions>>, TError,{caseId: string;data: BodyType<TransactionImportInput>}, TContext> => {
+
+const mutationKey = ['importTransactions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importTransactions>>, {caseId: string;data: BodyType<TransactionImportInput>}> = (props) => {
+          const {caseId,data} = props ?? {};
+
+          return  importTransactions(caseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportTransactionsMutationResult = NonNullable<Awaited<ReturnType<typeof importTransactions>>>
+    export type ImportTransactionsMutationBody = BodyType<TransactionImportInput>
+    export type ImportTransactionsMutationError = ErrorType<unknown>
+
+    export const useImportTransactions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importTransactions>>, TError,{caseId: string;data: BodyType<TransactionImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importTransactions>>,
+        TError,
+        {caseId: string;data: BodyType<TransactionImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportTransactionsMutationOptions(options));
     }
 

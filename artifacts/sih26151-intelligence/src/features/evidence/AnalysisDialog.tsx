@@ -84,8 +84,8 @@ export function AnalysisDialog() {
 
           <div className="bg-muted/30 p-4 rounded-md border text-sm text-muted-foreground">
             {mode === 'summarize' && "Generates a cohesive summary draft in Reports based on all gathered textual evidence, with citations."}
-            {mode === 'extract' && "Reads evidence text to identify and extract observables (IPs, emails, personas) into the Case Graph."}
-            {mode === 'correlate' && "Analyzes the Case Graph to propose relationships and possible hypotheses between entities."}
+            {mode === 'extract' && "Reads evidence text to propose observables for human review. Nothing is added to the Case Graph until accepted."}
+            {mode === 'correlate' && "Proposes evidence-backed relationships for human review. Nothing is added to the Case Graph until accepted."}
           </div>
 
           {mode === 'summarize' && (
