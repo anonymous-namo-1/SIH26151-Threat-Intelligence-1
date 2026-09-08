@@ -1,8 +1,8 @@
 # Vercel frontend deployment
 
-Status: this is the intended deployment configuration. The persistent external
-gateway hostname/DNS is still unresolved, and this document does not claim that
-ARGUS or its API has been published.
+Status: the Vercel frontend is configured to use the published Replit gateway at
+`https://sih-26151-threat-intelligence-1.replit.app`. Keep that deployment
+healthy whenever the Vercel frontend is in service.
 
 ARGUS uses a hybrid production topology:
 
@@ -56,13 +56,13 @@ Set these separately for Preview and Production:
 
 | Name | Value |
 |---|---|
-| `ARGUS_GATEWAY_URL` | HTTPS origin of the persistent Express gateway, without `/api` |
 | `CLERK_PUBLISHABLE_KEY` | Clerk publishable key configured for this environment |
 | `CLERK_PROXY_URL` | `/api/__clerk` |
 
-`ARGUS_GATEWAY_URL` is server-only: it is consumed by `next.config.mjs` to create
-the rewrite and is not shipped as a public browser variable. A Vercel build fails
-explicitly if this value is missing or is not HTTPS.
+The repository's Vercel build commands pin `ARGUS_GATEWAY_URL` to the published
+Replit gateway. This server-only value creates the same-origin `/api/*` rewrite
+and is not shipped as a public browser variable. If the gateway deployment URL
+changes, update both Vercel configuration files before redeploying.
 
 Do **not** add `CLERK_SECRET_KEY`, `SESSION_SECRET`, database credentials, Redis
 credentials, AI provider credentials, or object-storage credentials to Vercel.
