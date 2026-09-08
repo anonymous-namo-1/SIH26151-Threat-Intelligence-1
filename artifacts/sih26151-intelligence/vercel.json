@@ -1,6 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && ARGUS_GATEWAY_URL=https://sih-26151-threat-intelligence-1.replit.app pnpm --filter @workspace/api-client-react run build && ARGUS_GATEWAY_URL=https://sih-26151-threat-intelligence-1.replit.app pnpm --filter @workspace/sih26151-intelligence run build"
-}

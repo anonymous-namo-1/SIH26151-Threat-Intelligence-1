@@ -1,4 +1,0 @@
-observed_at,type,value,source
-2025-01-15T12:00:00Z,ip,203.0.113.9,authorized-training
-2025-01-15T12:01:00Z,domain,node.example.invalid,authorized-training
-2025-01-15T12:02:00Z,wallet,FAKE_WALLET_NOT_VALID_TEST_ONLY,authorized-training

@@ -1,4 +1,0 @@
-Authorized training note only.
-Observed 192.0.2.44 and 198.51.100.27 contacting harbor-node.example.invalid.
-Email: analyst@example.invalid
-Wallet label: FICTIONAL_WALLET_NOT_VALID_7HARBOR
