@@ -39,8 +39,8 @@ Both supported imports build the same application:
 
 | Vercel Root Directory | Configuration used | Build scope |
 |---|---|---|
-| `./` | `/vercel.json` | Only `@workspace/sih26151-intelligence` |
-| `artifacts/sih26151-intelligence` | Nested `vercel.json` | Only `@workspace/sih26151-intelligence` |
+| `./` | `/vercel.json` | Shared API client, then `@workspace/sih26151-intelligence` |
+| `artifacts/sih26151-intelligence` | Nested `vercel.json` | Shared API client, then `@workspace/sih26151-intelligence` |
 
 Do not override the Build Command with `pnpm run build` in the Vercel dashboard.
 At repository root that command intentionally builds every workspace project,
@@ -106,7 +106,8 @@ Run locally before pushing:
 pnpm install --frozen-lockfile
 pnpm run typecheck
 ARGUS_GATEWAY_URL=https://gateway.example.invalid \
-  VERCEL=1 pnpm --filter @workspace/sih26151-intelligence run build
+  VERCEL=1 sh -c 'pnpm --filter @workspace/api-client-react run build &&
+    pnpm --filter @workspace/sih26151-intelligence run build'
 ```
 
 Use a real authorized HTTPS gateway for end-to-end checks; the reserved

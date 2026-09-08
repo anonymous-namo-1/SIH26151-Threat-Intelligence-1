@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/sih26151-intelligence run build",
+  "buildCommand": "pnpm --filter @workspace/api-client-react run build && pnpm --filter @workspace/sih26151-intelligence run build",
   "outputDirectory": "artifacts/sih26151-intelligence/.next"
 }
