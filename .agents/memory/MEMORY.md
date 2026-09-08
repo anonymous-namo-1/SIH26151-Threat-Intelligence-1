@@ -2,3 +2,4 @@
 - [Gateway trust boundary](gateway-boundary.md) — Express and ASGI decode paths differently; broker authority needs signed, backend-enforced scope.
 - [Vercel deployment boundary](vercel-deployment.md) — Vercel hosts only Next.js; durable evidence and analysis services stay on a persistent backend.
 - [Evidence interpretation](evidence-interpretation.md) — specific-factor support and controlled assistant prose; a valid case citation alone is not claim grounding.
+- [Workspace graph snapshots](workspace-graph-snapshots.md) — restore graph state only after nodes initialize, and disable automatic fitting during snapshot restoration.

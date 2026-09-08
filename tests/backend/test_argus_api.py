@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import time
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from apps.api.auth import current_user
@@ -21,12 +22,15 @@ def signed_headers(method, path, body: bytes, scope="broker"):
         "sub": "clerk_test_owner", "name": "Owner", "exp": int(time.time()) + 30,
         "method": method, "path": path, "scope": scope,
         "body_sha256": hashlib.sha256(body).hexdigest(),
+        "nonce": secrets.token_urlsafe(24),
+        "request_id": str(uuid.uuid4()),
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(identity, separators=(",", ":")).encode()
     ).decode().rstrip("=")
     signature = hmac.new(b"test-only-session-secret", encoded.encode(), hashlib.sha256).hexdigest()
     return {"x-argus-identity": encoded, "x-argus-signature": signature,
+            "x-request-id": identity["request_id"],
             "content-type": "application/json"}
 
 
@@ -146,8 +150,12 @@ def test_uploads_require_broker_scope_and_exact_body_hash(client):
     bad_body = body + b" "
     mismatch = client.post(path, content=bad_body, headers=signed_headers("POST", path, body))
     assert mismatch.status_code == 401
-    accepted = client.post(path, content=body, headers=signed_headers("POST", path, body))
+    accepted_headers = signed_headers("POST", path, body)
+    accepted = client.post(path, content=body, headers=accepted_headers)
     assert accepted.status_code == 201, accepted.text
+    replayed = client.post(path, content=body, headers=accepted_headers)
+    assert replayed.status_code == 401
+    assert replayed.json()["detail"] == "Replayed gateway identity"
     upload_id = accepted.json()["id"]
     finalize_path = f"/api/argus/uploads/{upload_id}/finalize"
     finalize_payload = {

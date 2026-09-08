@@ -1,5 +1,9 @@
 # Vercel frontend deployment
 
+Status: this is the intended deployment configuration. The persistent external
+gateway hostname/DNS is still unresolved, and this document does not claim that
+ARGUS or its API has been published.
+
 ARGUS uses a hybrid production topology:
 
 ```text

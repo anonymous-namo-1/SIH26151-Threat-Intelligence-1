@@ -1,16 +1,21 @@
 import { useState } from 'react';
-import { useListEvidence, type Evidence } from '@workspace/api-client-react';
+import { useListEvidence, getListEvidenceQueryKey, type Evidence } from '@workspace/api-client-react';
 import { useCaseWorkspace } from '@/hooks/use-case-workspace';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search } from 'lucide-react';
+import { Search, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
 export function EvidenceList({ selectedId, onSelect }: { selectedId: string | null, onSelect: (e: Evidence) => void }) {
   const { caseId } = useCaseWorkspace();
-  const { data: evidence, isLoading } = useListEvidence(caseId);
+  const [page, setPage] = useState(1);
+  const limit = 50;
+  const offset = (page - 1) * limit;
+
+  const { data: evidence, isLoading } = useListEvidence(caseId, { limit, offset }, { query: { queryKey: getListEvidenceQueryKey(caseId, { limit, offset }) } });
   const [search, setSearch] = useState("");
 
   if (isLoading) return <div className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>;
@@ -55,6 +60,15 @@ export function EvidenceList({ selectedId, onSelect }: { selectedId: string | nu
             </div>
           </div>
         ))}
+      </div>
+      <div className="p-2 border-t flex justify-between items-center bg-muted/10">
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-[10px] font-mono text-muted-foreground">Pg {page}</span>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => p + 1)} disabled={evidence.length < limit}>
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

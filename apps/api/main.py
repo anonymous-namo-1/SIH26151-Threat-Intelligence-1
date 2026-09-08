@@ -46,6 +46,11 @@ app.add_middleware(RequestLimitsMiddleware)
 
 @app.get("/healthz")
 def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready():
     try:
         with SessionLocal() as db:
             db.execute(select(User.id).limit(1)).all()
@@ -59,7 +64,7 @@ def healthz():
         available, error = redis_status()
         if not available:
             raise HTTPException(503, f"redis unavailable: {error}")
-    return {"status": "ok"}
+    return {"status": "ready"}
 
 
 for route in (cases.router, intelligence.router, operations.router, admin_uploads.router,

@@ -2,6 +2,8 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
+import re
 import time
 from dataclasses import dataclass
 
@@ -23,6 +25,18 @@ class GatewayIdentity:
     path: str
     scope: str
     body_sha256: str
+    nonce: str
+    request_id: str
+
+
+_NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
+_REQUEST_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+_MAX_REPLAY_ENTRIES = 10_000
+_seen_nonces: dict[str, int] = {}
+_logger = logging.getLogger("argus.gateway")
 
 
 async def verify_gateway_identity(request: Request) -> GatewayIdentity:
@@ -44,6 +58,8 @@ async def verify_gateway_identity(request: Request) -> GatewayIdentity:
             method=str(data["method"]).upper(), path=str(data["path"]),
             scope=str(data.get("scope", "public")),
             body_sha256=str(data["body_sha256"]).lower(),
+            nonce=str(data["nonce"]),
+            request_id=str(data["request_id"]),
         )
     except (ValueError, TypeError, KeyError, json.JSONDecodeError):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Malformed gateway identity") from None
@@ -64,7 +80,29 @@ async def verify_gateway_identity(request: Request) -> GatewayIdentity:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid gateway identity scope")
     if not identity.sub or len(identity.sub) > 255 or len(identity.name) > 255:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid gateway identity")
+    if not _NONCE_RE.fullmatch(identity.nonce) or not _REQUEST_ID_RE.fullmatch(identity.request_id):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid gateway identity")
+    if request.headers.get("x-request-id") != identity.request_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Signed request ID mismatch")
+    # The private process is the replay authority. Cleanup and capacity are
+    # bounded; at capacity we fail closed rather than silently dropping history.
+    for nonce, expiry in list(_seen_nonces.items()):
+        if expiry < now:
+            del _seen_nonces[nonce]
+    if identity.nonce in _seen_nonces:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Replayed gateway identity")
+    if len(_seen_nonces) >= _MAX_REPLAY_ENTRIES:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Gateway replay protection unavailable")
+    _seen_nonces[identity.nonce] = identity.exp
     request.state.argus_scope = identity.scope
+    request.state.request_id = identity.request_id
+    _logger.info(json.dumps({
+        "event": "gateway_request_authenticated",
+        "request_id": identity.request_id,
+        "method": identity.method,
+        "path": identity.path.split("?", 1)[0],
+        "scope": identity.scope,
+    }, separators=(",", ":")))
     return identity
 
 

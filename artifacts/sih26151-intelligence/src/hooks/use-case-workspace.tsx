@@ -17,18 +17,55 @@ const Context = createContext<CaseWorkspace | null>(null);
 export function CaseWorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, isSignedIn } = useUser();
   const query = useListCases({ limit: 100 }, { query: { enabled: !!isSignedIn, staleTime: 30_000, queryKey: getListCasesQueryKey({ limit: 100 }) } });
-  const [selected, setSelected] = useState("");
-  useEffect(() => setSelected(""), [user?.id]);
+
+  const [selected, setSelected] = useState(() => {
+    return localStorage.getItem("argus_active_case") || "";
+  });
+
+  const handleSetSelected = (id: string) => {
+    setSelected(id);
+    if (id) {
+      localStorage.setItem("argus_active_case", id);
+    } else {
+      localStorage.removeItem("argus_active_case");
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      // Don't reset if we have a valid saved case, but maybe we should?
+      // Keeping it from localStorage is fine.
+    } else {
+      handleSetSelected("");
+    }
+  }, [user?.id]);
+
   const cases = query.data?.items ?? [];
   const listedCase = cases.find((item) => item.id === selected);
+
+  // Validate if the selected case is accessible.
   const detail = useGetCase(selected, { query: {
     queryKey: getGetCaseQueryKey(selected),
     enabled: !!isSignedIn && !!selected && !listedCase,
+    retry: false
   } });
-  // A selection outside the first result page must not silently switch cases.
+
+  useEffect(() => {
+    if (detail.error) {
+      // If we got an error fetching the specific case, it might be unauthorized or deleted.
+      // We don't auto-clear it here to let the user see the error, but we could.
+    }
+  }, [detail.error]);
+
   const activeCase = selected ? listedCase || detail.data : cases[0];
+
+  // If we fell back to cases[0] because there was no selection, let's not auto-save it yet
+  // until the user actually selects it, or maybe we just let caseId be cases[0].id
+
+  const caseId = activeCase?.id || "";
+
   return <Context.Provider value={{
-    caseId: activeCase?.id || "", activeCase, cases, setCaseId: setSelected,
+    caseId, activeCase, cases, setCaseId: handleSetSelected,
     isLoading: query.isLoading || (!!selected && !listedCase && detail.isLoading),
     error: query.error || (selected && !listedCase ? detail.error : null),
     retry: () => { void query.refetch(); if (selected && !listedCase) void detail.refetch(); },

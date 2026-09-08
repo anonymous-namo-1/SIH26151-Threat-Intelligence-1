@@ -36,3 +36,19 @@ pnpm run build
 ```
 
 Fixtures under `tests/fixtures` are safe parser examples only; they use reserved addresses/domains and fake wallets.
+
+## Operation Nightglass demo
+
+Seeding is an explicit, per-user development/demo action after that user has
+signed in once:
+
+```sh
+python -m apps.api.manage seed-user --clerk-sub USER_SUB
+```
+
+The same opt-in action is available to authorized investigators through the seed
+API. A second request is refused and does not duplicate or overwrite the case.
+Operation Nightglass is entirely fictional: its personas, posts, messages,
+transactions, invalid wallets/keys, `example.invalid` domains, and TEST-NET IPs
+must never be replaced with live infrastructure or real-person data. See
+[demo.md](demo.md) for the evidence-first walkthrough and test preconditions.

@@ -1,32 +1,30 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { shutdownChildrenInOrder } from "./processSupervisor.mjs";
 
 // One managed API service owns the public gateway and private Python/cache
 // processes. Only the gateway binds publicly; no business API auth bypass.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const children = [];
+let gateway;
 let stopping = false;
-function stop(code = 0) {
+async function stop(code = 0) {
   if (stopping) return;
   stopping = true;
-  for (const child of children) child.kill("SIGTERM");
-  const force = setTimeout(() => {
-    for (const child of children) child.kill("SIGKILL");
-    process.exit(code);
-  }, 4000);
-  force.unref();
-  setTimeout(() => process.exit(code), 4500);
+  // Keep private dependencies alive while Express stops accepting connections
+  // and drains in-flight requests (its own deadline is 10 seconds).
+  await shutdownChildrenInOrder({ children, gateway, code });
 }
-for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => stop(0));
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => void stop(0));
 function start(command, args, env) {
   const child = spawn(command, args, { cwd: root, env, stdio: "inherit" });
   children.push(child);
   child.on("error", (err) => {
     console.error(JSON.stringify({ level: "error", service: command, message: err.message }));
-    stop(1);
+    void stop(1);
   });
-  child.on("exit", (code) => { if (!stopping) stop(code || 1); });
+  child.on("exit", (code) => { if (!stopping) void stop(code || 1); });
   return child;
 }
 const env = { ...process.env };
@@ -46,7 +44,7 @@ for (let attempt = 0; attempt < 80 && !stopping; attempt++) {
 }
 if (!ready) {
   console.error(JSON.stringify({ level: "error", message: "ARGUS private API did not become ready. Check database setup and API logs." }));
-  stop(1);
+  void stop(1);
 } else {
-  start("node", ["--enable-source-maps", "artifacts/api-server/dist/index.mjs"], env);
+  gateway = start("node", ["--enable-source-maps", "artifacts/api-server/dist/index.mjs"], env);
 }

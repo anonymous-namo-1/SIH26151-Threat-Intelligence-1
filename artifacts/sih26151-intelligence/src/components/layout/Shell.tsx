@@ -18,21 +18,24 @@ import {
   LogOut,
   Menu,
   ActivitySquare,
-  X
+  X,
+  Layout
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useCaseWorkspace } from '@/hooks/use-case-workspace';
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user } = useUser();
   const { activeCase } = useCaseWorkspace();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Workspace', path: '/workspace', icon: Layout },
     { name: 'Investigations', path: '/investigations', icon: Search },
+    { name: 'Entities', path: '/entities', icon: Users },
     { name: 'Analysis', path: '/analysis', icon: ActivitySquare },
     { name: 'Global Search', path: '/search', icon: Search },
     { name: 'Graph Analysis', path: '/graph', icon: Network },
@@ -44,6 +47,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { name: 'Reports', path: '/reports', icon: FileText },
     { name: 'Audit', path: '/audit', icon: FileText },
   ];
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setLocation('/search');
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [setLocation]);
 
   useEffect(() => {
     const activeItem = navItems.find(item => 
@@ -130,13 +144,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="w-5 h-5" />
             </Button>
-            <div className="hidden md:flex items-center bg-muted/50 rounded-md px-3 py-1.5 w-80 lg:w-96 border border-border/50 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <div
+              className="hidden md:flex items-center bg-muted/50 rounded-md px-3 py-1.5 w-80 lg:w-96 border border-border/50 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all cursor-pointer"
+              onClick={() => setLocation('/search')}
+            >
               <Search className="w-4 h-4 text-muted-foreground mr-2" />
-              <input 
-                type="text" 
-                placeholder="Quick search... (Press ⌘K for global)" 
-                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
-              />
+              <div className="text-sm text-muted-foreground flex-1">Quick search...</div>
               <div className="flex gap-1 ml-2">
                 <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground">⌘</kbd>
                 <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground">K</kbd>

@@ -182,3 +182,35 @@ class RelationshipOut(ORMModel):
     attribution: str
     created_by: uuid.UUID
     created_at: datetime
+
+
+class ProfileNote(BaseModel):
+    source: Literal["entity.description", "entity.metadata"]
+    key: str | None = None
+    value: Any
+
+
+class ActorHypothesisProfile(BaseModel):
+    reviewable_hypothesis: Literal[True] = True
+    caution: str
+    analyst_assigned_confidence: float
+    personas: list[EntityOut]
+    indicator_groups: dict[str, list[EntityOut]]
+    evidence_strength: list[dict[str, Any]]
+    contradictions: list[dict[str, Any]]
+    evidence_ids: list[uuid.UUID]
+
+
+class EntityProfile(BaseModel):
+    entity: EntityOut
+    confidence: float
+    metadata: dict[str, Any]
+    relationships: list[RelationshipOut]
+    evidence: list[EvidenceOut]
+    timeline: list[dict[str, Any]]
+    activity: list[dict[str, Any]]
+    related_entities: list[EntityOut]
+    related_cases: list[dict[str, Any]]
+    notes: list[ProfileNote]
+    notes_storage: Literal["Entity description and metadata; no separate note table."]
+    actor_hypothesis: ActorHypothesisProfile | None = None

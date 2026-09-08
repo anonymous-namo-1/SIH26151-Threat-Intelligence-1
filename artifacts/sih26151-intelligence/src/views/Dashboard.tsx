@@ -1,5 +1,5 @@
 import { ShieldAlert, Server, Activity, ArrowRight, FolderOpen, Loader2 } from 'lucide-react';
-import { useGetDashboard, useSeedWorkspace } from '@workspace/api-client-react';
+import { useGetDashboard, useSeedWorkspace, getGetDashboardQueryKey, getListCasesQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'wouter';
@@ -15,8 +15,8 @@ export function Dashboard() {
   const handleSeed = () => {
     seed.mutate(undefined, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/argus/dashboard'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/argus/cases'] });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListCasesQueryKey({ limit: 100 }) });
       }
     });
   };

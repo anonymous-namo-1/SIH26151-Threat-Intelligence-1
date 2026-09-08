@@ -48,7 +48,7 @@ export function GraphInspector({
 
 function EntityInspectorContent({ entity }: { entity: Entity }) {
   const { caseId } = useCaseWorkspace();
-  const { data: evidence = [] } = useListEvidence(caseId, { query: { enabled: !!caseId, queryKey: getListEvidenceQueryKey(caseId) } });
+  const { data: evidence = [] } = useListEvidence(caseId, { limit: 500 }, { query: { enabled: !!caseId, queryKey: getListEvidenceQueryKey(caseId) } });
   const entityEvidence = evidence.filter(ev => ev.entity_ids?.includes(entity.id));
 
   return (

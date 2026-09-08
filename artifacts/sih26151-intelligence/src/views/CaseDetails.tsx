@@ -7,6 +7,7 @@ import {
   useUpdateCase, 
   useDeleteCase,
   useGetMe,
+  getListCasesQueryKey,
   Priority, 
   CaseStatus, 
   Classification 
@@ -108,7 +109,7 @@ export function CaseDetails() {
       createCase.mutate({ data: payload }, {
         onSuccess: (newCase) => {
           toast({ title: 'Case created successfully' });
-          queryClient.invalidateQueries({ queryKey: ['/api/argus/cases'] });
+          queryClient.invalidateQueries({ queryKey: getListCasesQueryKey({ limit: 100 }) });
           setLocation(`/cases/${newCase.id}`);
         },
         onError: () => toast({ title: 'Error creating case', variant: 'destructive' })
@@ -117,7 +118,7 @@ export function CaseDetails() {
       updateCase.mutate({ caseId: id, data: payload }, {
         onSuccess: (updated) => {
           toast({ title: 'Case updated successfully' });
-          queryClient.invalidateQueries({ queryKey: ['/api/argus/cases'] });
+          queryClient.invalidateQueries({ queryKey: getListCasesQueryKey({ limit: 100 }) });
           queryClient.setQueryData(getGetCaseQueryKey(id), updated);
         },
         onError: () => toast({ title: 'Error updating case', variant: 'destructive' })
@@ -130,7 +131,7 @@ export function CaseDetails() {
     deleteCase.mutate({ caseId: id }, {
       onSuccess: () => {
         toast({ title: 'Case deleted successfully' });
-        queryClient.invalidateQueries({ queryKey: ['/api/argus/cases'] });
+        queryClient.invalidateQueries({ queryKey: getListCasesQueryKey({ limit: 100 }) });
         setCaseId("");
         setLocation('/cases');
       },

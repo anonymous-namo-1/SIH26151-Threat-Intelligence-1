@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { FileText, Plus, Trash2 } from 'lucide-react';
+import { FileText, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getListReportsQueryKey } from '@workspace/api-client-react';
@@ -16,11 +16,17 @@ export function ReportsList({ onSelect }: { onSelect: (report: Report) => void }
   const { caseId } = useCaseWorkspace();
   const queryClient = useQueryClient();
   const { canWriteReport } = usePermissions();
-  const { data: reports, isLoading, error } = useListReports(caseId);
+
+  const [page, setPage] = useState(1);
+  const limit = 50;
+  const offset = (page - 1) * limit;
+
+  const { data: reports, isLoading, error } = useListReports(caseId, { limit, offset }, { query: { queryKey: getListReportsQueryKey(caseId, { limit, offset }) } });
+
   const createReport = useCreateReport({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListReportsQueryKey(caseId) });
+        queryClient.invalidateQueries({ queryKey: getListReportsQueryKey(caseId, { limit, offset }) });
         toast.success("Report created");
       }
     }
@@ -28,7 +34,7 @@ export function ReportsList({ onSelect }: { onSelect: (report: Report) => void }
   const deleteReport = useDeleteReport({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListReportsQueryKey(caseId) });
+        queryClient.invalidateQueries({ queryKey: getListReportsQueryKey(caseId, { limit, offset }) });
         toast.success("Report deleted");
       }
     }
@@ -64,41 +70,52 @@ export function ReportsList({ onSelect }: { onSelect: (report: Report) => void }
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-          {reports.map(report => (
-            <Card key={report.id} className="cursor-pointer hover:border-primary/50 transition-colors group relative" onClick={() => onSelect(report)}>
-              <CardHeader className="p-4">
-                <CardTitle className="text-base line-clamp-1">{report.title || "Untitled"}</CardTitle>
-                <CardDescription className="text-xs">
-                  Updated {format(new Date(report.updated_at), 'MMM d, yyyy HH:mm')}
-                </CardDescription>
-              </CardHeader>
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                {canWriteReport && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => e.stopPropagation()}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent onClick={e => e.stopPropagation()}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete report?</AlertDialogTitle>
-                        <AlertDialogDescription>This action cannot be undone. The report will be permanently removed.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteReport.mutate({ reportId: report.id })}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            {reports.map(report => (
+              <Card key={report.id} className="cursor-pointer hover:border-primary/50 transition-colors group relative" onClick={() => onSelect(report)}>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-base line-clamp-1">{report.title || "Untitled"}</CardTitle>
+                  <CardDescription className="text-xs">
+                    Updated {format(new Date(report.updated_at), 'MMM d, yyyy HH:mm')}
+                  </CardDescription>
+                </CardHeader>
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {canWriteReport && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => e.stopPropagation()}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={e => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete report?</AlertDialogTitle>
+                          <AlertDialogDescription>This action cannot be undone. The report will be permanently removed.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteReport.mutate({ reportId: report.id })}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div className="flex justify-between items-center mt-6">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Previous
+            </Button>
+            <span className="text-sm font-mono text-muted-foreground">Page {page}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={reports.length < limit}>
+              Next <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );

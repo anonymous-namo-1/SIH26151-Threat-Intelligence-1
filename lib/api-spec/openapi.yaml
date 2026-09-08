@@ -15,6 +15,13 @@ paths:
       tags: [health]
       responses:
         "200": { description: Healthy, content: { application/json: { schema: { $ref: "#/components/schemas/HealthStatus" } } } }
+  /ready:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      description: Public path is /api/ready because the API server base is /api; the private FastAPI upstream serves /ready.
+      responses:
+        "200": { description: Dependencies ready, content: { application/json: { schema: { $ref: "#/components/schemas/HealthStatus" } } } }
   /argus/me:
     get:
       operationId: getMe
@@ -80,6 +87,9 @@ paths:
     get:
       operationId: listEntities
       tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/ListLimit" }
+        - { $ref: "#/components/parameters/Offset" }
       responses:
         "200": { description: Entities, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Entity" } } } } }
     post:
@@ -101,11 +111,20 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EntityUpdate" } } } }
       responses:
         "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Entity" } } } }
+  /argus/entities/{entity_id}/profile:
+    get:
+      operationId: getEntityProfile
+      tags: [argus]
+      parameters: [{ $ref: "#/components/parameters/EntityId" }]
+      responses:
+        "200": { description: Case-scoped evidence-first aggregate profile, content: { application/json: { schema: { $ref: "#/components/schemas/EntityProfile" } } } }
   /argus/cases/{case_id}/relationships:
     parameters: [{ $ref: "#/components/parameters/CaseId" }]
     get:
       operationId: listRelationships
       tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/ListLimit" }
       responses:
         "200": { description: Relationships, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Relationship" } } } } }
     post:
@@ -136,6 +155,8 @@ paths:
         - { name: min_confidence, in: query, schema: { type: number, minimum: 0, maximum: 1, default: 0 } }
         - { name: entity_type, in: query, schema: { $ref: "#/components/schemas/EntityType" } }
         - { name: relationship_type, in: query, schema: { $ref: "#/components/schemas/RelationshipType" } }
+        - { name: node_limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 500 } }
+        - { name: edge_limit, in: query, schema: { type: integer, minimum: 1, maximum: 2000, default: 1000 } }
       responses:
         "200": { description: Graph, content: { application/json: { schema: { $ref: "#/components/schemas/Graph" } } } }
   /argus/cases/{case_id}/path:
@@ -154,6 +175,8 @@ paths:
     get:
       operationId: listSavedViews
       tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/SmallListLimit" }
       responses:
         "200": { description: Views, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SavedView" } } } } }
     post:
@@ -174,6 +197,9 @@ paths:
     get:
       operationId: listEvidence
       tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/ListLimit" }
+        - { $ref: "#/components/parameters/Offset" }
       responses:
         "200": { description: Evidence, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Evidence" } } } } }
     post:
@@ -199,7 +225,21 @@ paths:
     get:
       operationId: getCaseTimeline
       tags: [argus]
-      parameters: [{ $ref: "#/components/parameters/CaseId" }]
+      parameters:
+        - { $ref: "#/components/parameters/CaseId" }
+        - name: kind
+          in: query
+          schema: { type: array, maxItems: 20, items: { $ref: "#/components/schemas/TimelineKind" } }
+          style: form
+          explode: true
+        - { name: start, in: query, schema: { type: string, format: date-time } }
+        - name: end
+          in: query
+          description: Exclusive UTC upper bound. To include a full UTC day, send midnight at the start of the next day.
+          schema: { type: string, format: date-time }
+        - { name: entity_id, in: query, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 100 } }
+        - { $ref: "#/components/parameters/Offset" }
       responses:
         "200": { description: Timeline, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TimelineEvent" } } } } }
   /argus/cases/{case_id}/analyze:
@@ -221,9 +261,23 @@ paths:
     get:
       operationId: listCaseJobs
       tags: [argus]
-      parameters: [{ $ref: "#/components/parameters/CaseId" }]
+      parameters:
+        - { $ref: "#/components/parameters/CaseId" }
+        - { $ref: "#/components/parameters/SmallListLimit" }
+        - { $ref: "#/components/parameters/Offset" }
       responses:
         "200": { description: Jobs, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Job" } } } } }
+  /argus/cases/{case_id}/jobs/pending-review:
+    get:
+      operationId: listPendingReviewJobs
+      tags: [argus]
+      description: Retrieves every succeeded extraction/correlation queue that still has undecided candidates, independent of newer jobs.
+      parameters:
+        - { $ref: "#/components/parameters/CaseId" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200": { description: Pending review jobs, content: { application/json: { schema: { $ref: "#/components/schemas/JobPage" } } } }
   /argus/cases/{case_id}/compare:
     get:
       operationId: compareEntities
@@ -239,6 +293,9 @@ paths:
     get:
       operationId: listReports
       tags: [argus]
+      parameters:
+        - { $ref: "#/components/parameters/SmallListLimit" }
+        - { $ref: "#/components/parameters/Offset" }
       responses:
         "200": { description: Reports, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Report" } } } } }
     post:
@@ -382,6 +439,8 @@ components:
     JobId: { name: job_id, in: path, required: true, schema: { type: string, format: uuid } }
     UploadId: { name: upload_id, in: path, required: true, schema: { type: string, format: uuid } }
     Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    ListLimit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+    SmallListLimit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 100 } }
     Offset: { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
   schemas:
     ModuleName:
@@ -524,14 +583,14 @@ components:
     Priority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
     Classification: { type: string, enum: [UNCLASSIFIED, RESTRICTED, CONFIDENTIAL] }
     EntityType: { type: string, enum: [ACTOR_HYPOTHESIS, PERSONA, USERNAME, EMAIL, PGP_KEY, CRYPTO_WALLET, DOMAIN, IP_ADDRESS, ONION_SERVICE, URL, POST, MESSAGE, DOCUMENT, MARKETPLACE, FORUM, ORGANIZATION, INFRASTRUCTURE, FILE_HASH, CRYPTO_TRANSACTION, LOCATION_INDICATOR, DEVICE_INDICATOR, DATE, CERTIFICATE, DNS_RECORD, HOSTING, SERVICE] }
-    RelationshipType: { type: string, enum: [USES, OWNS, POSTED, MENTIONED, SIGNED_WITH, TRANSACTED_WITH, HOSTED_ON, RESOLVES_TO, REGISTERED_WITH, SAME_AS, POSSIBLY_SAME_AS, COMMUNICATED_WITH, ASSOCIATED_WITH, OBSERVED_AT, LINKED_TO, MIGRATED_TO] }
+    RelationshipType: { type: string, enum: [USES, OWNS, POSTED, MENTIONED, SIGNED_WITH, TRANSACTED_WITH, HOSTED_ON, RESOLVES_TO, REGISTERED_WITH, SAME_AS, SAME_PERSON_AS, POSSIBLY_SAME_AS, DISTINCT_FROM, NOT_SAME_AS, DENIES_IDENTITY, CONTRADICTS, COMMUNICATED_WITH, ASSOCIATED_WITH, OBSERVED_AT, LINKED_TO, MIGRATED_TO] }
     Attribution: { type: string, enum: [HUMAN, ALGORITHM] }
     HumanAttribution: { type: string, enum: [HUMAN] }
     EvidenceType: { type: string, enum: [MANUAL, DOCUMENT, PUBLIC_SOURCE, DATASET, API_IMPORT, SCREENSHOT_METADATA, TEXT, CRYPTO_DATA, INFRASTRUCTURE_DATA] }
     Reliability: { type: string, enum: [A, B, C, D, E, F, UNKNOWN, LOW, MEDIUM, HIGH, VERIFIED] }
     AnalysisMode: { type: string, enum: [extract, correlate, summarize] }
     JobStatus: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED, RETRYING] }
-    ExportFormat: { type: string, enum: [markdown, json, html] }
+    ExportFormat: { type: string, enum: [markdown, json, html, csv] }
     UploadState: { type: string, enum: [PENDING, FINALIZED] }
     JsonMetadata: { type: object, additionalProperties: true }
     User:
@@ -697,6 +756,16 @@ components:
       properties:
         nodes: { type: array, items: { $ref: "#/components/schemas/Entity" } }
         edges: { type: array, items: { $ref: "#/components/schemas/Relationship" } }
+        truncation: { $ref: "#/components/schemas/GraphTruncation" }
+    GraphTruncation:
+      type: object
+      required: [truncated, nodes_truncated, edges_truncated, node_limit, edge_limit]
+      properties:
+        truncated: { type: boolean }
+        nodes_truncated: { type: boolean }
+        edges_truncated: { type: boolean }
+        node_limit: { type: integer }
+        edge_limit: { type: integer }
     GraphPath:
       type: object
       required: [found, nodes, edges]
@@ -759,16 +828,89 @@ components:
         filters: { $ref: "#/components/schemas/JsonMetadata" }
         positions: { $ref: "#/components/schemas/JsonMetadata" }
         viewport: { $ref: "#/components/schemas/JsonMetadata" }
+    TimelineKind:
+      type: string
+      enum: [POST, TRANSACTION, DOMAIN_APPEARANCE, ALIAS_CREATION, PGP_USAGE, INFRASTRUCTURE_CHANGE, ENTITY_OBSERVED, EVIDENCE_COLLECTED, AUDIT]
     TimelineEvent:
       type: object
       required: [id, kind, title, occurred_at]
       properties:
         id: { type: string, format: uuid }
-        kind: { type: string, enum: [EVIDENCE, ENTITY, AUDIT] }
+        kind: { $ref: "#/components/schemas/TimelineKind" }
         title: { type: string }
         occurred_at: { type: string, format: date-time }
         entity_id: { type: [string, "null"], format: uuid }
         evidence_id: { type: [string, "null"], format: uuid }
+    ProfileNote:
+      type: object
+      required: [source, value]
+      properties:
+        source: { type: string, enum: [entity.description, entity.metadata] }
+        key: { type: [string, "null"] }
+        value: {}
+    ProfileActivity:
+      type: object
+      required: [id, action, created_at, resource_type, resource_id]
+      properties:
+        id: { type: string, format: uuid }
+        action: { type: string }
+        created_at: { type: string, format: date-time }
+        resource_type: { type: string }
+        resource_id: { type: string }
+    RelatedCase:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+    EvidenceConclusion:
+      type: object
+      required: [relationship_id, relationship_type, confidence, explanation, evidence_ids]
+      properties:
+        relationship_id: { type: string, format: uuid }
+        relationship_type: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        explanation: { type: string }
+        evidence_ids: { type: array, minItems: 1, items: { type: string, format: uuid } }
+    ActorHypothesisProfile:
+      type: object
+      description: Bounded two-hop, evidence-cited reviewable correlation hypothesis; never an identity or culpability assertion.
+      required: [reviewable_hypothesis, caution, analyst_assigned_confidence, personas, indicator_groups, evidence_strength, contradictions, evidence_ids]
+      properties:
+        reviewable_hypothesis: { type: boolean, const: true }
+        caution: { type: string }
+        analyst_assigned_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Stored analyst-assigned Entity.confidence value; not calculated algorithm output.
+        personas: { type: array, items: { $ref: "#/components/schemas/Entity" } }
+        indicator_groups:
+          type: object
+          additionalProperties: { type: array, items: { $ref: "#/components/schemas/Entity" } }
+        evidence_strength: { type: array, items: { $ref: "#/components/schemas/EvidenceConclusion" } }
+        contradictions: { type: array, items: { $ref: "#/components/schemas/EvidenceConclusion" } }
+        evidence_ids: { type: array, items: { type: string, format: uuid } }
+    EntityProfile:
+      type: object
+      description: Notes are projections of Entity.description and Entity.metadata; ARGUS has no separate entity-note table.
+      required: [entity, confidence, metadata, relationships, evidence, timeline, activity, related_entities, related_cases, notes, notes_storage, actor_hypothesis]
+      properties:
+        entity: { $ref: "#/components/schemas/Entity" }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        metadata: { $ref: "#/components/schemas/JsonMetadata" }
+        relationships: { type: array, maxItems: 400, items: { $ref: "#/components/schemas/Relationship" } }
+        evidence: { type: array, maxItems: 200, items: { $ref: "#/components/schemas/Evidence" } }
+        timeline: { type: array, maxItems: 201, items: { $ref: "#/components/schemas/TimelineEvent" } }
+        activity: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/ProfileActivity" } }
+        related_entities: { type: array, maxItems: 400, items: { $ref: "#/components/schemas/Entity" } }
+        related_cases: { type: array, maxItems: 25, items: { $ref: "#/components/schemas/RelatedCase" } }
+        notes: { type: array, items: { $ref: "#/components/schemas/ProfileNote" } }
+        notes_storage: { type: string, const: "Entity description and metadata; no separate note table." }
+        actor_hypothesis:
+          anyOf:
+            - { $ref: "#/components/schemas/ActorHypothesisProfile" }
+            - { type: "null" }
     AnalysisInput:
       type: object
       required: [mode]
@@ -792,6 +934,14 @@ components:
         lease_expires_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    JobPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Job" } }
+        total: { type: integer, minimum: 0 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        offset: { type: integer, minimum: 0 }
     SimilarityFactor:
       type: object
       required: [factor, score, explanation, evidence_ids]

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useListCaseJobs, JobStatus, type Job, getListCaseJobsQueryKey, getListEntitiesQueryKey, getListEvidenceQueryKey, getListReportsQueryKey, getGetDashboardQueryKey, getListRelationshipsQueryKey, getGetCaseGraphQueryKey } from '@workspace/api-client-react';
+import { useListCaseJobs, useListPendingReviewJobs, JobStatus, type Job, getListCaseJobsQueryKey, getListPendingReviewJobsQueryKey, getListEntitiesQueryKey, getListEvidenceQueryKey, getListReportsQueryKey, getGetDashboardQueryKey, getListRelationshipsQueryKey, getGetCaseGraphQueryKey } from '@workspace/api-client-react';
 import { useCaseWorkspace } from '@/hooks/use-case-workspace';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
@@ -12,7 +12,21 @@ function jobCandidates(job: Job): ReviewCandidate[] {
   return Array.isArray(result.candidates) ? result.candidates as ReviewCandidate[] : [];
 }
 
-function PendingReviewQueue({ jobs, caseId }: { jobs: Job[]; caseId: string }) {
+function PendingReviewQueue({
+  jobs,
+  caseId,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+}: {
+  jobs: Job[];
+  caseId: string;
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
   const pendingJobs = jobs
     .filter(job =>
       job.status === JobStatus.SUCCEEDED
@@ -47,6 +61,29 @@ function PendingReviewQueue({ jobs, caseId }: { jobs: Job[]; caseId: string }) {
         ))}
       </div>
       <ReviewCandidates jobId={selected.id} caseId={caseId} candidates={jobCandidates(selected)} />
+      {total > pageSize && (
+        <div className="flex items-center justify-between border-t pt-3">
+          <button
+            type="button"
+            className="text-xs text-primary disabled:text-muted-foreground"
+            disabled={page === 0}
+            onClick={() => onPageChange(Math.max(0, page - 1))}
+          >
+            Newer review jobs
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {page * pageSize + 1}–{Math.min(total, (page + 1) * pageSize)} of {total}
+          </span>
+          <button
+            type="button"
+            className="text-xs text-primary disabled:text-muted-foreground"
+            disabled={(page + 1) * pageSize >= total}
+            onClick={() => onPageChange(page + 1)}
+          >
+            Older review jobs
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -54,7 +91,30 @@ function PendingReviewQueue({ jobs, caseId }: { jobs: Job[]; caseId: string }) {
 export function AnalysisJobStatus() {
   const { caseId } = useCaseWorkspace();
   const queryClient = useQueryClient();
-  const { data: jobs, error } = useListCaseJobs(caseId, { query: { refetchInterval: 3000, queryKey: getListCaseJobsQueryKey(caseId) } });
+  const [pendingPage, setPendingPage] = useState(0);
+  const pendingPageSize = 25;
+  const { data: jobs, error } = useListCaseJobs(caseId, { limit: 200 }, { query: { refetchInterval: 3000, queryKey: getListCaseJobsQueryKey(caseId, { limit: 200 }) } });
+
+  const pendingParams = { limit: pendingPageSize, offset: pendingPage * pendingPageSize };
+  const { data: pendingJobsData } = useListPendingReviewJobs(caseId, pendingParams, {
+    query: {
+      refetchInterval: 5000,
+      queryKey: getListPendingReviewJobsQueryKey(caseId, pendingParams),
+    },
+  });
+
+  useEffect(() => {
+    if (pendingJobsData?.total) {
+      const maxPage = Math.max(0, Math.ceil(pendingJobsData.total / pendingPageSize) - 1);
+      if (pendingPage > maxPage) {
+        setPendingPage(maxPage);
+      }
+    }
+  }, [pendingJobsData?.total, pendingPage, pendingPageSize]);
+
+  useEffect(() => {
+    setPendingPage(0);
+  }, [caseId]);
 
   const prevJobStatus = useRef<Record<string, JobStatus>>({});
 
@@ -82,10 +142,20 @@ export function AnalysisJobStatus() {
 
   if (error) return <p role="alert" className="text-sm text-destructive">Job status unavailable. Retrying…</p>;
   const evidenceJobs = jobs?.filter(job => ['extract', 'correlate', 'summarize'].includes(job.mode)) || [];
-  if (evidenceJobs.length === 0) return null;
-
   const latestJob = [...evidenceJobs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-  const pendingReviews = <PendingReviewQueue jobs={evidenceJobs} caseId={caseId} />;
+  const pendingReviewJobs = pendingJobsData?.items?.filter((job: Job) => job.case_id === caseId) || [];
+  const pendingReviews = pendingReviewJobs.length > 0 ? (
+    <PendingReviewQueue
+      jobs={pendingReviewJobs}
+      caseId={caseId}
+      total={pendingJobsData?.total || pendingReviewJobs.length}
+      page={pendingPage}
+      pageSize={pendingPageSize}
+      onPageChange={setPendingPage}
+    />
+  ) : null;
+
+  if (evidenceJobs.length === 0) return pendingReviews;
   
   if (latestJob.status === JobStatus.QUEUED || latestJob.status === JobStatus.RUNNING || latestJob.status === JobStatus.RETRYING) {
     return (

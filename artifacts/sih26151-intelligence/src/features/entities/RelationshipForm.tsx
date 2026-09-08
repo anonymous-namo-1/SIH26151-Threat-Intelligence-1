@@ -46,7 +46,7 @@ export function RelationshipForm({ open, onOpenChange, defaultSourceId, defaultT
   const { caseId } = useCaseWorkspace();
   const queryClient = useQueryClient();
   const createRelationship = useCreateRelationship();
-  const { data: entities = [] } = useListEntities(caseId, { query: { enabled: open && !!caseId, queryKey: getListEntitiesQueryKey(caseId) } });
+  const { data: entities = [] } = useListEntities(caseId, { limit: 500 }, { query: { enabled: open && !!caseId, queryKey: getListEntitiesQueryKey(caseId) } });
 
   const form = useForm<z.infer<typeof relationshipSchema>>({
     resolver: zodResolver(relationshipSchema),

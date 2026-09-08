@@ -13,6 +13,14 @@ export const HealthCheckResponse = zod.object({
 })
 
 
+/**
+ * Public path is /api/ready because the API server base is /api; the private FastAPI upstream serves /ready.
+ */
+export const ReadinessCheckResponse = zod.object({
+  "status": zod.string()
+})
+
+
 export const GetMeResponse = zod.object({
   "user": zod.object({
   "id": zod.string().uuid(),
@@ -358,6 +366,19 @@ export const ListEntitiesParams = zod.object({
   "case_id": zod.coerce.string().uuid()
 })
 
+export const listEntitiesQueryLimitDefault = 100;
+export const listEntitiesQueryLimitMax = 500;
+
+export const listEntitiesQueryOffsetDefault = 0;
+export const listEntitiesQueryOffsetMin = 0;
+
+
+
+export const ListEntitiesQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listEntitiesQueryLimitMax).default(listEntitiesQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listEntitiesQueryOffsetMin).default(listEntitiesQueryOffsetDefault)
+})
+
 export const listEntitiesResponseConfidenceMin = 0;
 export const listEntitiesResponseConfidenceMax = 1;
 
@@ -526,8 +547,206 @@ export const UpdateEntityResponse = zod.object({
 })
 
 
+export const GetEntityProfileParams = zod.object({
+  "entity_id": zod.coerce.string().uuid()
+})
+
+export const getEntityProfileResponseEntityConfidenceMin = 0;
+export const getEntityProfileResponseEntityConfidenceMax = 1;
+
+export const getEntityProfileResponseConfidenceMin = 0;
+export const getEntityProfileResponseConfidenceMax = 1;
+
+
+export const getEntityProfileResponseRelationshipsMax = 400;
+
+export const getEntityProfileResponseEvidenceMax = 200;
+
+export const getEntityProfileResponseTimelineMax = 201;
+
+export const getEntityProfileResponseActivityMax = 100;
+
+export const getEntityProfileResponseRelatedEntitiesItemConfidenceMin = 0;
+export const getEntityProfileResponseRelatedEntitiesItemConfidenceMax = 1;
+
+export const getEntityProfileResponseRelatedEntitiesMax = 400;
+
+export const getEntityProfileResponseRelatedCasesMax = 25;
+
+export const getEntityProfileResponseActorHypothesisOneAnalystAssignedConfidenceMin = 0;
+export const getEntityProfileResponseActorHypothesisOneAnalystAssignedConfidenceMax = 1;
+
+export const getEntityProfileResponseActorHypothesisOnePersonasItemConfidenceMin = 0;
+export const getEntityProfileResponseActorHypothesisOnePersonasItemConfidenceMax = 1;
+
+export const getEntityProfileResponseActorHypothesisOneIndicatorGroupsItemConfidenceMin = 0;
+export const getEntityProfileResponseActorHypothesisOneIndicatorGroupsItemConfidenceMax = 1;
+
+export const getEntityProfileResponseActorHypothesisOneEvidenceStrengthItemConfidenceMin = 0;
+export const getEntityProfileResponseActorHypothesisOneEvidenceStrengthItemConfidenceMax = 1;
+
+
+export const getEntityProfileResponseActorHypothesisOneContradictionsItemConfidenceMin = 0;
+export const getEntityProfileResponseActorHypothesisOneContradictionsItemConfidenceMax = 1;
+
+
+
+
+export const GetEntityProfileResponse = zod.object({
+  "entity": zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
+  "value": zod.string(),
+  "aliases": zod.array(zod.string()),
+  "description": zod.string(),
+  "source": zod.string(),
+  "first_seen": zod.coerce.date().nullish(),
+  "last_seen": zod.coerce.date().nullish(),
+  "confidence": zod.number().min(getEntityProfileResponseEntityConfidenceMin).max(getEntityProfileResponseEntityConfidenceMax),
+  "tags": zod.array(zod.string()),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}),
+  "confidence": zod.number().min(getEntityProfileResponseConfidenceMin).max(getEntityProfileResponseConfidenceMax),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "relationships": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "source_id": zod.string().uuid(),
+  "target_id": zod.string().uuid(),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "confidence": zod.number(),
+  "evidence_ids": zod.array(zod.string().uuid()).min(1),
+  "explanation": zod.string(),
+  "attribution": zod.enum(['HUMAN', 'ALGORITHM']),
+  "created_by": zod.string().uuid(),
+  "created_at": zod.coerce.date()
+})).max(getEntityProfileResponseRelationshipsMax),
+  "evidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "type": zod.enum(['MANUAL', 'DOCUMENT', 'PUBLIC_SOURCE', 'DATASET', 'API_IMPORT', 'SCREENSHOT_METADATA', 'TEXT', 'CRYPTO_DATA', 'INFRASTRUCTURE_DATA']),
+  "source": zod.string(),
+  "source_url": zod.string().url().nullish(),
+  "collected_at": zod.coerce.date(),
+  "collector_id": zod.string().uuid(),
+  "content_hash": zod.string(),
+  "notes": zod.string(),
+  "reliability": zod.enum(['A', 'B', 'C', 'D', 'E', 'F', 'UNKNOWN', 'LOW', 'MEDIUM', 'HIGH', 'VERIFIED']),
+  "entity_ids": zod.array(zod.string().uuid()),
+  "object_path": zod.string().nullish(),
+  "content": zod.string().nullish(),
+  "created_at": zod.coerce.date()
+})).max(getEntityProfileResponseEvidenceMax),
+  "timeline": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['POST', 'TRANSACTION', 'DOMAIN_APPEARANCE', 'ALIAS_CREATION', 'PGP_USAGE', 'INFRASTRUCTURE_CHANGE', 'ENTITY_OBSERVED', 'EVIDENCE_COLLECTED', 'AUDIT']),
+  "title": zod.string(),
+  "occurred_at": zod.coerce.date(),
+  "entity_id": zod.string().uuid().nullish(),
+  "evidence_id": zod.string().uuid().nullish()
+})).max(getEntityProfileResponseTimelineMax),
+  "activity": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.string(),
+  "created_at": zod.coerce.date(),
+  "resource_type": zod.string(),
+  "resource_id": zod.string()
+})).max(getEntityProfileResponseActivityMax),
+  "related_entities": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
+  "value": zod.string(),
+  "aliases": zod.array(zod.string()),
+  "description": zod.string(),
+  "source": zod.string(),
+  "first_seen": zod.coerce.date().nullish(),
+  "last_seen": zod.coerce.date().nullish(),
+  "confidence": zod.number().min(getEntityProfileResponseRelatedEntitiesItemConfidenceMin).max(getEntityProfileResponseRelatedEntitiesItemConfidenceMax),
+  "tags": zod.array(zod.string()),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})).max(getEntityProfileResponseRelatedEntitiesMax),
+  "related_cases": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string()
+})).max(getEntityProfileResponseRelatedCasesMax),
+  "notes": zod.array(zod.object({
+  "source": zod.enum(['entity.description', 'entity.metadata']),
+  "key": zod.string().nullish(),
+  "value": zod.unknown()
+})),
+  "notes_storage": zod.literal("Entity description and metadata; no separate note table."),
+  "actor_hypothesis": zod.union([zod.object({
+  "reviewable_hypothesis": zod.literal(true),
+  "caution": zod.string(),
+  "analyst_assigned_confidence": zod.number().min(getEntityProfileResponseActorHypothesisOneAnalystAssignedConfidenceMin).max(getEntityProfileResponseActorHypothesisOneAnalystAssignedConfidenceMax).describe('Stored analyst-assigned Entity.confidence value; not calculated algorithm output.'),
+  "personas": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
+  "value": zod.string(),
+  "aliases": zod.array(zod.string()),
+  "description": zod.string(),
+  "source": zod.string(),
+  "first_seen": zod.coerce.date().nullish(),
+  "last_seen": zod.coerce.date().nullish(),
+  "confidence": zod.number().min(getEntityProfileResponseActorHypothesisOnePersonasItemConfidenceMin).max(getEntityProfileResponseActorHypothesisOnePersonasItemConfidenceMax),
+  "tags": zod.array(zod.string()),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})),
+  "indicator_groups": zod.record(zod.string(), zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']),
+  "value": zod.string(),
+  "aliases": zod.array(zod.string()),
+  "description": zod.string(),
+  "source": zod.string(),
+  "first_seen": zod.coerce.date().nullish(),
+  "last_seen": zod.coerce.date().nullish(),
+  "confidence": zod.number().min(getEntityProfileResponseActorHypothesisOneIndicatorGroupsItemConfidenceMin).max(getEntityProfileResponseActorHypothesisOneIndicatorGroupsItemConfidenceMax),
+  "tags": zod.array(zod.string()),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}))),
+  "evidence_strength": zod.array(zod.object({
+  "relationship_id": zod.string().uuid(),
+  "relationship_type": zod.string(),
+  "confidence": zod.number().min(getEntityProfileResponseActorHypothesisOneEvidenceStrengthItemConfidenceMin).max(getEntityProfileResponseActorHypothesisOneEvidenceStrengthItemConfidenceMax),
+  "explanation": zod.string(),
+  "evidence_ids": zod.array(zod.string().uuid()).min(1)
+})),
+  "contradictions": zod.array(zod.object({
+  "relationship_id": zod.string().uuid(),
+  "relationship_type": zod.string(),
+  "confidence": zod.number().min(getEntityProfileResponseActorHypothesisOneContradictionsItemConfidenceMin).max(getEntityProfileResponseActorHypothesisOneContradictionsItemConfidenceMax),
+  "explanation": zod.string(),
+  "evidence_ids": zod.array(zod.string().uuid()).min(1)
+})),
+  "evidence_ids": zod.array(zod.string().uuid())
+}).describe('Bounded two-hop, evidence-cited reviewable correlation hypothesis; never an identity or culpability assertion.'),zod.null()])
+}).describe('Notes are projections of Entity.description and Entity.metadata; ARGUS has no separate entity-note table.')
+
+
 export const ListRelationshipsParams = zod.object({
   "case_id": zod.coerce.string().uuid()
+})
+
+export const listRelationshipsQueryLimitDefault = 100;
+export const listRelationshipsQueryLimitMax = 500;
+
+
+
+export const ListRelationshipsQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listRelationshipsQueryLimitMax).default(listRelationshipsQueryLimitDefault)
 })
 
 
@@ -538,7 +757,7 @@ export const ListRelationshipsResponseItem = zod.object({
   "case_id": zod.string().uuid(),
   "source_id": zod.string().uuid(),
   "target_id": zod.string().uuid(),
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
   "confidence": zod.number(),
   "evidence_ids": zod.array(zod.string().uuid()).min(1),
   "explanation": zod.string(),
@@ -565,7 +784,7 @@ export const createRelationshipBodyExplanationMax = 10000;
 export const CreateRelationshipBody = zod.object({
   "source_id": zod.string().uuid(),
   "target_id": zod.string().uuid(),
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
   "confidence": zod.number().min(createRelationshipBodyConfidenceMin).max(createRelationshipBodyConfidenceMax),
   "evidence_ids": zod.array(zod.string().uuid()).min(1).max(createRelationshipBodyEvidenceIdsMax),
   "explanation": zod.string().min(1).max(createRelationshipBodyExplanationMax),
@@ -580,7 +799,7 @@ export const CreateRelationshipResponse = zod.object({
   "case_id": zod.string().uuid(),
   "source_id": zod.string().uuid(),
   "target_id": zod.string().uuid(),
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
   "confidence": zod.number(),
   "evidence_ids": zod.array(zod.string().uuid()).min(1),
   "explanation": zod.string(),
@@ -604,7 +823,7 @@ export const updateRelationshipBodyExplanationMax = 10000;
 
 
 export const UpdateRelationshipBody = zod.object({
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']).optional(),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']).optional(),
   "confidence": zod.number().min(updateRelationshipBodyConfidenceMin).max(updateRelationshipBodyConfidenceMax).optional(),
   "evidence_ids": zod.array(zod.string().uuid()).min(1).max(updateRelationshipBodyEvidenceIdsMax).optional(),
   "explanation": zod.string().min(1).max(updateRelationshipBodyExplanationMax).optional()
@@ -618,7 +837,7 @@ export const UpdateRelationshipResponse = zod.object({
   "case_id": zod.string().uuid(),
   "source_id": zod.string().uuid(),
   "target_id": zod.string().uuid(),
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
   "confidence": zod.number(),
   "evidence_ids": zod.array(zod.string().uuid()).min(1),
   "explanation": zod.string(),
@@ -643,12 +862,20 @@ export const getCaseGraphQueryMinConfidenceDefault = 0;
 export const getCaseGraphQueryMinConfidenceMin = 0;
 export const getCaseGraphQueryMinConfidenceMax = 1;
 
+export const getCaseGraphQueryNodeLimitDefault = 500;
+export const getCaseGraphQueryNodeLimitMax = 1000;
+
+export const getCaseGraphQueryEdgeLimitDefault = 1000;
+export const getCaseGraphQueryEdgeLimitMax = 2000;
+
 
 
 export const GetCaseGraphQueryParams = zod.object({
   "min_confidence": zod.coerce.number().min(getCaseGraphQueryMinConfidenceMin).max(getCaseGraphQueryMinConfidenceMax).default(getCaseGraphQueryMinConfidenceDefault),
   "entity_type": zod.enum(['ACTOR_HYPOTHESIS', 'PERSONA', 'USERNAME', 'EMAIL', 'PGP_KEY', 'CRYPTO_WALLET', 'DOMAIN', 'IP_ADDRESS', 'ONION_SERVICE', 'URL', 'POST', 'MESSAGE', 'DOCUMENT', 'MARKETPLACE', 'FORUM', 'ORGANIZATION', 'INFRASTRUCTURE', 'FILE_HASH', 'CRYPTO_TRANSACTION', 'LOCATION_INDICATOR', 'DEVICE_INDICATOR', 'DATE', 'CERTIFICATE', 'DNS_RECORD', 'HOSTING', 'SERVICE']).optional(),
-  "relationship_type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']).optional()
+  "relationship_type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']).optional(),
+  "node_limit": zod.coerce.number().int().min(1).max(getCaseGraphQueryNodeLimitMax).default(getCaseGraphQueryNodeLimitDefault),
+  "edge_limit": zod.coerce.number().int().min(1).max(getCaseGraphQueryEdgeLimitMax).default(getCaseGraphQueryEdgeLimitDefault)
 })
 
 export const getCaseGraphResponseNodesItemConfidenceMin = 0;
@@ -679,14 +906,21 @@ export const GetCaseGraphResponse = zod.object({
   "case_id": zod.string().uuid(),
   "source_id": zod.string().uuid(),
   "target_id": zod.string().uuid(),
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
   "confidence": zod.number(),
   "evidence_ids": zod.array(zod.string().uuid()).min(1),
   "explanation": zod.string(),
   "attribution": zod.enum(['HUMAN', 'ALGORITHM']),
   "created_by": zod.string().uuid(),
   "created_at": zod.coerce.date()
-}))
+})),
+  "truncation": zod.object({
+  "truncated": zod.boolean(),
+  "nodes_truncated": zod.boolean(),
+  "edges_truncated": zod.boolean(),
+  "node_limit": zod.number().int(),
+  "edge_limit": zod.number().int()
+}).optional()
 })
 
 
@@ -735,7 +969,7 @@ export const FindEntityPathResponse = zod.object({
   "case_id": zod.string().uuid(),
   "source_id": zod.string().uuid(),
   "target_id": zod.string().uuid(),
-  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'POSSIBLY_SAME_AS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
+  "type": zod.enum(['USES', 'OWNS', 'POSTED', 'MENTIONED', 'SIGNED_WITH', 'TRANSACTED_WITH', 'HOSTED_ON', 'RESOLVES_TO', 'REGISTERED_WITH', 'SAME_AS', 'SAME_PERSON_AS', 'POSSIBLY_SAME_AS', 'DISTINCT_FROM', 'NOT_SAME_AS', 'DENIES_IDENTITY', 'CONTRADICTS', 'COMMUNICATED_WITH', 'ASSOCIATED_WITH', 'OBSERVED_AT', 'LINKED_TO', 'MIGRATED_TO']),
   "confidence": zod.number(),
   "evidence_ids": zod.array(zod.string().uuid()).min(1),
   "explanation": zod.string(),
@@ -748,6 +982,15 @@ export const FindEntityPathResponse = zod.object({
 
 export const ListSavedViewsParams = zod.object({
   "case_id": zod.coerce.string().uuid()
+})
+
+export const listSavedViewsQueryLimitDefault = 100;
+export const listSavedViewsQueryLimitMax = 200;
+
+
+
+export const ListSavedViewsQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listSavedViewsQueryLimitMax).default(listSavedViewsQueryLimitDefault)
 })
 
 export const ListSavedViewsResponseItem = zod.object({
@@ -797,6 +1040,19 @@ export const DeleteSavedViewResponse = zod.void()
 
 export const ListEvidenceParams = zod.object({
   "case_id": zod.coerce.string().uuid()
+})
+
+export const listEvidenceQueryLimitDefault = 100;
+export const listEvidenceQueryLimitMax = 500;
+
+export const listEvidenceQueryOffsetDefault = 0;
+export const listEvidenceQueryOffsetMin = 0;
+
+
+
+export const ListEvidenceQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listEvidenceQueryLimitMax).default(listEvidenceQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listEvidenceQueryOffsetMin).default(listEvidenceQueryOffsetDefault)
 })
 
 export const ListEvidenceResponseItem = zod.object({
@@ -921,9 +1177,28 @@ export const GetCaseTimelineParams = zod.object({
   "case_id": zod.coerce.string().uuid()
 })
 
+export const getCaseTimelineQueryKindMax = 20;
+
+export const getCaseTimelineQueryLimitDefault = 100;
+export const getCaseTimelineQueryLimitMax = 200;
+
+export const getCaseTimelineQueryOffsetDefault = 0;
+export const getCaseTimelineQueryOffsetMin = 0;
+
+
+
+export const GetCaseTimelineQueryParams = zod.object({
+  "kind": zod.array(zod.enum(['POST', 'TRANSACTION', 'DOMAIN_APPEARANCE', 'ALIAS_CREATION', 'PGP_USAGE', 'INFRASTRUCTURE_CHANGE', 'ENTITY_OBSERVED', 'EVIDENCE_COLLECTED', 'AUDIT'])).max(getCaseTimelineQueryKindMax).optional(),
+  "start": zod.date().optional(),
+  "end": zod.date().optional().describe('Exclusive UTC upper bound. To include a full UTC day, send midnight at the start of the next day.'),
+  "entity_id": zod.coerce.string().uuid().optional(),
+  "limit": zod.coerce.number().int().min(1).max(getCaseTimelineQueryLimitMax).default(getCaseTimelineQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(getCaseTimelineQueryOffsetMin).default(getCaseTimelineQueryOffsetDefault)
+})
+
 export const GetCaseTimelineResponseItem = zod.object({
   "id": zod.string().uuid(),
-  "kind": zod.enum(['EVIDENCE', 'ENTITY', 'AUDIT']),
+  "kind": zod.enum(['POST', 'TRANSACTION', 'DOMAIN_APPEARANCE', 'ALIAS_CREATION', 'PGP_USAGE', 'INFRASTRUCTURE_CHANGE', 'ENTITY_OBSERVED', 'EVIDENCE_COLLECTED', 'AUDIT']),
   "title": zod.string(),
   "occurred_at": zod.coerce.date(),
   "entity_id": zod.string().uuid().nullish(),
@@ -987,6 +1262,19 @@ export const ListCaseJobsParams = zod.object({
   "case_id": zod.coerce.string().uuid()
 })
 
+export const listCaseJobsQueryLimitDefault = 100;
+export const listCaseJobsQueryLimitMax = 200;
+
+export const listCaseJobsQueryOffsetDefault = 0;
+export const listCaseJobsQueryOffsetMin = 0;
+
+
+
+export const ListCaseJobsQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listCaseJobsQueryLimitMax).default(listCaseJobsQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listCaseJobsQueryOffsetMin).default(listCaseJobsQueryOffsetDefault)
+})
+
 export const ListCaseJobsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "case_id": zod.string().uuid(),
@@ -1003,6 +1291,56 @@ export const ListCaseJobsResponseItem = zod.object({
   "updated_at": zod.coerce.date()
 })
 export const ListCaseJobsResponse = zod.array(ListCaseJobsResponseItem)
+
+
+/**
+ * Retrieves every succeeded extraction/correlation queue that still has undecided candidates, independent of newer jobs.
+ */
+export const ListPendingReviewJobsParams = zod.object({
+  "case_id": zod.coerce.string().uuid()
+})
+
+export const listPendingReviewJobsQueryLimitDefault = 50;
+export const listPendingReviewJobsQueryLimitMax = 100;
+
+export const listPendingReviewJobsQueryOffsetDefault = 0;
+export const listPendingReviewJobsQueryOffsetMin = 0;
+
+
+
+export const ListPendingReviewJobsQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listPendingReviewJobsQueryLimitMax).default(listPendingReviewJobsQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listPendingReviewJobsQueryOffsetMin).default(listPendingReviewJobsQueryOffsetDefault)
+})
+
+export const listPendingReviewJobsResponseTotalMin = 0;
+
+export const listPendingReviewJobsResponseLimitMax = 100;
+
+export const listPendingReviewJobsResponseOffsetMin = 0;
+
+
+
+export const ListPendingReviewJobsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "case_id": zod.string().uuid(),
+  "mode": zod.string(),
+  "status": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'RETRYING']),
+  "attempts": zod.number().int(),
+  "max_attempts": zod.number().int(),
+  "result": zod.union([zod.record(zod.string(), zod.unknown()),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "available_at": zod.coerce.date(),
+  "lease_token": zod.string().uuid().nullable(),
+  "lease_expires_at": zod.coerce.date().nullable(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})),
+  "total": zod.number().int().min(listPendingReviewJobsResponseTotalMin),
+  "limit": zod.number().int().min(1).max(listPendingReviewJobsResponseLimitMax),
+  "offset": zod.number().int().min(listPendingReviewJobsResponseOffsetMin)
+})
 
 
 export const CompareEntitiesParams = zod.object({
@@ -1049,6 +1387,19 @@ export const CompareEntitiesResponse = zod.object({
 
 export const ListReportsParams = zod.object({
   "case_id": zod.coerce.string().uuid()
+})
+
+export const listReportsQueryLimitDefault = 100;
+export const listReportsQueryLimitMax = 200;
+
+export const listReportsQueryOffsetDefault = 0;
+export const listReportsQueryOffsetMin = 0;
+
+
+
+export const ListReportsQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(listReportsQueryLimitMax).default(listReportsQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listReportsQueryOffsetMin).default(listReportsQueryOffsetDefault)
 })
 
 export const ListReportsResponseItem = zod.object({
@@ -1156,11 +1507,11 @@ export const ExportReportParams = zod.object({
 })
 
 export const ExportReportQueryParams = zod.object({
-  "format": zod.enum(['markdown', 'json', 'html'])
+  "format": zod.enum(['markdown', 'json', 'html', 'csv'])
 })
 
 export const ExportReportResponse = zod.object({
-  "format": zod.enum(['markdown', 'json', 'html']),
+  "format": zod.enum(['markdown', 'json', 'html', 'csv']),
   "media_type": zod.string(),
   "filename": zod.string(),
   "content": zod.string()

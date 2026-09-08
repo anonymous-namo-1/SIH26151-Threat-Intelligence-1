@@ -25,6 +25,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const CLERK_FAPI = 'https://frontend-api.clerk.dev';
 export const CLERK_PROXY_PATH = '/api/__clerk';
+const MAX_BUFFERED_PROXY_BYTES = 8 * 1024 * 1024;
 
 /**
  * Returns the first effective public hostname for the given request,
@@ -125,8 +126,21 @@ export function clerkProxyMiddleware(): RequestHandler {
         }
 
         const chunks: Buffer[] = [];
-        proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+        let bufferedBytes = 0;
+        let exceeded = false;
+        proxyRes.on('data', (chunk: Buffer) => {
+          bufferedBytes += chunk.length;
+          if (bufferedBytes > MAX_BUFFERED_PROXY_BYTES) {
+            exceeded = true;
+            res.writeHead(502, { 'content-length': '0' });
+            res.end();
+            proxyRes.destroy();
+            return;
+          }
+          chunks.push(chunk);
+        });
         proxyRes.on('end', () => {
+          if (exceeded) return;
           const body = Buffer.concat(chunks);
           headers['content-length'] = String(body.length);
           res.writeHead(status, headers);

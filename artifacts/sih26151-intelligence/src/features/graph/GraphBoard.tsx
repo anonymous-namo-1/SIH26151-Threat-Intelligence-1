@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { 
-  ReactFlow, 
-  Controls, 
-  Background, 
+import {
+  ReactFlow,
+  Controls,
+  Background,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -16,8 +16,8 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useCaseWorkspace } from "@/hooks/use-case-workspace";
-import { 
-  useGetCaseGraph, 
+import {
+  useGetCaseGraph,
   getGetCaseGraphQueryKey,
   useListSavedViews,
   getListSavedViewsQueryKey,
@@ -50,7 +50,25 @@ function layoutNodes(nodes: Node[]) {
   }));
 }
 
-function GraphBoardInner() {
+function GraphBoardInner({
+  onSelectEntity,
+  restoreKey,
+  initialPositions,
+  initialViewport,
+  initialFilters,
+  onPositionsChange,
+  onViewportChange,
+  onFiltersChange
+}: {
+  onSelectEntity?: (id: string) => void,
+  restoreKey?: string,
+  initialPositions?: any,
+  initialViewport?: any,
+  initialFilters?: any,
+  onPositionsChange?: (pos: any) => void,
+  onViewportChange?: (vp: any) => void,
+  onFiltersChange?: (filters: any) => void
+}) {
   const { caseId } = useCaseWorkspace();
   const { fitView, setViewport, getNodes } = useReactFlow();
 
@@ -64,7 +82,7 @@ function GraphBoardInner() {
     min_confidence: minConfidence,
   }, { query: { queryKey: getGetCaseGraphQueryKey(caseId, { min_confidence: minConfidence }) } });
 
-  const { data: savedViews } = useListSavedViews(caseId, { query: { queryKey: getListSavedViewsQueryKey(caseId) } });
+  const { data: savedViews } = useListSavedViews(caseId, { limit: 200 }, { query: { queryKey: getListSavedViewsQueryKey(caseId) } });
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -73,21 +91,66 @@ function GraphBoardInner() {
   const [selectedRelationship, setSelectedRelationship] = useState<Relationship | null>(null);
   const [hiddenNodes, setHiddenNodes] = useState<Set<string>>(new Set());
 
+  const lastRestoreKey = useRef<string | undefined>(undefined);
+  const pendingRestoreKey = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (restoreKey && restoreKey !== lastRestoreKey.current) {
+      pendingRestoreKey.current = restoreKey;
+      if (initialFilters) {
+        if (initialFilters.minConfidence !== undefined) setMinConfidence(initialFilters.minConfidence);
+        if (initialFilters.selectedTypes) setSelectedTypes(initialFilters.selectedTypes);
+        if (initialFilters.selectedRelTypes) setSelectedRelTypes(initialFilters.selectedRelTypes);
+        if (initialFilters.cutoffDate !== undefined) setCutoffDate(initialFilters.cutoffDate);
+        if (initialFilters.hiddenNodes) setHiddenNodes(new Set(initialFilters.hiddenNodes));
+      }
+    }
+  }, [restoreKey, initialFilters]);
+
+  // Sync state up to parent when filters change
+  useEffect(() => {
+    if (onFiltersChange && !pendingRestoreKey.current) {
+      onFiltersChange({
+        minConfidence,
+        selectedTypes,
+        selectedRelTypes,
+        cutoffDate,
+        hiddenNodes: Array.from(hiddenNodes)
+      });
+    }
+  }, [minConfidence, selectedTypes, selectedRelTypes, cutoffDate, hiddenNodes, onFiltersChange]);
+
+  // Sync positions up to parent when they change
+  const onNodeDragStop = useCallback(() => {
+    if (onPositionsChange && getNodes().length > 0) {
+      const posMap = getNodes().reduce((acc, n) => ({ ...acc, [n.id]: n.position }), {});
+      onPositionsChange(posMap);
+    }
+  }, [onPositionsChange, getNodes]);
+
+  const onMoveEnd = useCallback((event: any, viewport: any) => {
+    if (onViewportChange) {
+      onViewportChange(viewport);
+    }
+  }, [onViewportChange]);
+
   // Clear UI state when caseId changes
   useEffect(() => {
     setSelectedEntity(null);
     setSelectedRelationship(null);
     setActiveViewId(null);
-    setHiddenNodes(new Set());
-    setCutoffDate("");
-  }, [caseId]);
+    if (!restoreKey || restoreKey === "default") {
+      setHiddenNodes(new Set());
+      setCutoffDate("");
+    }
+  }, [caseId, restoreKey]);
 
   const viewAppliedRef = useRef<string | null>(null);
 
   // Initialize graph
   useEffect(() => {
     if (!graph) return;
-    
+
     const isCutoffPassed = (dateStr?: string | null) => {
       if (!cutoffDate || !dateStr) return false;
       return new Date(dateStr) > new Date(cutoffDate);
@@ -100,9 +163,9 @@ function GraphBoardInner() {
       if (isCutoffPassed(n.created_at)) return false;
       return true;
     });
-    
+
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
-    
+
     const filteredEdges = graph.edges.filter(e => {
       if (selectedRelTypes.length > 0 && !selectedRelTypes.includes(e.type)) return false;
       if (isCutoffPassed(e.created_at)) return false;
@@ -110,13 +173,22 @@ function GraphBoardInner() {
       return true;
     });
 
+    const restorePending = Boolean(
+      restoreKey
+      && pendingRestoreKey.current === restoreKey
+      && lastRestoreKey.current !== restoreKey
+    );
+
     setNodes(currentNodes => {
       const posMap = new Map(currentNodes.map(n => [n.id, n.position]));
-      
+      const restoredPositions = restorePending && initialPositions
+        ? initialPositions as Record<string, { x: number; y: number }>
+        : undefined;
+
       let newNodes: Node[] = filteredNodes.map(entity => ({
         id: entity.id,
         type: 'entity',
-        position: posMap.get(entity.id) || { x: 0, y: 0 },
+        position: restoredPositions?.[entity.id] || posMap.get(entity.id) || { x: 0, y: 0 },
         data: { entity },
       }));
 
@@ -139,9 +211,22 @@ function GraphBoardInner() {
         viewAppliedRef.current = null;
       }
 
-      // If no positions are set at all for new nodes, layout them
+      if (restorePending) {
+        if (
+          initialViewport
+          && Number.isFinite(initialViewport.x)
+          && Number.isFinite(initialViewport.y)
+          && Number.isFinite(initialViewport.zoom)
+        ) {
+          setTimeout(() => setViewport(initialViewport), 0);
+        }
+        lastRestoreKey.current = restoreKey;
+        pendingRestoreKey.current = undefined;
+      }
+
+      // Only apply the default layout when no saved snapshot is being restored.
       const missingPos = newNodes.filter(n => n.position.x === 0 && n.position.y === 0);
-      if (missingPos.length === newNodes.length && newNodes.length > 0) {
+      if (!restorePending && missingPos.length === newNodes.length && newNodes.length > 0) {
         newNodes = layoutNodes(newNodes);
         setTimeout(() => fitView({ padding: 0.2 }), 100);
       }
@@ -160,7 +245,7 @@ function GraphBoardInner() {
 
     setEdges(newEdges);
 
-  }, [graph, selectedTypes, selectedRelTypes, cutoffDate, hiddenNodes, activeViewId, savedViews, setNodes, setEdges, fitView, setViewport]);
+  }, [graph, selectedTypes, selectedRelTypes, cutoffDate, hiddenNodes, activeViewId, savedViews, restoreKey, initialPositions, initialViewport, setNodes, setEdges, fitView, setViewport]);
 
   const toggleNodeExpansion = useCallback((nodeId: string) => {
     if (!graph) return;
@@ -169,7 +254,7 @@ function GraphBoardInner() {
       if (e.source_id === nodeId) neighbors.add(e.target_id);
       if (e.target_id === nodeId) neighbors.add(e.source_id);
     });
-    
+
     setHiddenNodes(prev => {
       const next = new Set(prev);
       const anyHidden = Array.from(neighbors).some(nId => next.has(nId));
@@ -190,7 +275,8 @@ function GraphBoardInner() {
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedEntity(node.data.entity as Entity);
     setSelectedRelationship(null);
-  }, []);
+    onSelectEntity?.((node.data.entity as Entity).id);
+  }, [onSelectEntity]);
 
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
     setSelectedRelationship(edge.data?.relationship as Relationship);
@@ -200,7 +286,8 @@ function GraphBoardInner() {
   const onPaneClick = useCallback(() => {
     setSelectedEntity(null);
     setSelectedRelationship(null);
-  }, []);
+    onSelectEntity?.("");
+  }, [onSelectEntity]);
 
   if (isLoading) {
     return (
@@ -229,13 +316,14 @@ function GraphBoardInner() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onNodeDragStop={onNodeDragStop}
           onNodeClick={onNodeClick}
           onNodeDoubleClick={onNodeDoubleClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
+          onMoveEnd={onMoveEnd}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          fitView
           minZoom={0.1}
           maxZoom={4}
           className="bg-muted/10"
@@ -243,9 +331,9 @@ function GraphBoardInner() {
           <Background color="#ccc" gap={16} />
           <Controls />
           <MiniMap zoomable pannable />
-          
+
           <Panel position="top-left">
-            <GraphToolbar 
+            <GraphToolbar
               minConfidence={minConfidence}
               setMinConfidence={setMinConfidence}
               selectedTypes={selectedTypes}
@@ -260,13 +348,23 @@ function GraphBoardInner() {
               nodes={nodes}
             />
           </Panel>
+          {graph?.truncation?.truncated && (
+            <Panel position="top-right">
+              <div className="max-w-xs rounded-md border border-warning/40 bg-background/95 px-3 py-2 text-xs text-warning shadow-sm">
+                Graph limit reached. Some
+                {graph.truncation.nodes_truncated ? ' entities' : ''}
+                {graph.truncation.nodes_truncated && graph.truncation.edges_truncated ? ' and' : ''}
+                {graph.truncation.edges_truncated ? ' relationships' : ''} are not shown.
+              </div>
+            </Panel>
+          )}
         </ReactFlow>
       </div>
 
-      {(selectedEntity || selectedRelationship) && (
-        <GraphInspector 
-          entity={selectedEntity} 
-          relationship={selectedRelationship} 
+      {(selectedEntity || selectedRelationship) && !onSelectEntity && (
+        <GraphInspector
+          entity={selectedEntity}
+          relationship={selectedRelationship}
           onClose={() => {
             setSelectedEntity(null);
             setSelectedRelationship(null);
@@ -277,10 +375,37 @@ function GraphBoardInner() {
   );
 }
 
-export function GraphBoard() {
+export function GraphBoard({
+  onSelectEntity,
+  restoreKey,
+  initialPositions,
+  initialViewport,
+  initialFilters,
+  onPositionsChange,
+  onViewportChange,
+  onFiltersChange
+}: {
+  onSelectEntity?: (id: string) => void,
+  restoreKey?: string,
+  initialPositions?: any,
+  initialViewport?: any,
+  initialFilters?: any,
+  onPositionsChange?: (pos: any) => void,
+  onViewportChange?: (vp: any) => void,
+  onFiltersChange?: (filters: any) => void
+}) {
   return (
     <ReactFlowProvider>
-      <GraphBoardInner />
+      <GraphBoardInner
+        onSelectEntity={onSelectEntity}
+        restoreKey={restoreKey}
+        initialPositions={initialPositions}
+        initialViewport={initialViewport}
+        initialFilters={initialFilters}
+        onPositionsChange={onPositionsChange}
+        onViewportChange={onViewportChange}
+        onFiltersChange={onFiltersChange}
+      />
     </ReactFlowProvider>
   );
 }

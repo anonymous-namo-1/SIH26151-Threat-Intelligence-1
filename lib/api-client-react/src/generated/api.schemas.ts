@@ -288,7 +288,12 @@ export const RelationshipType = {
   RESOLVES_TO: 'RESOLVES_TO',
   REGISTERED_WITH: 'REGISTERED_WITH',
   SAME_AS: 'SAME_AS',
+  SAME_PERSON_AS: 'SAME_PERSON_AS',
   POSSIBLY_SAME_AS: 'POSSIBLY_SAME_AS',
+  DISTINCT_FROM: 'DISTINCT_FROM',
+  NOT_SAME_AS: 'NOT_SAME_AS',
+  DENIES_IDENTITY: 'DENIES_IDENTITY',
+  CONTRADICTS: 'CONTRADICTS',
   COMMUNICATED_WITH: 'COMMUNICATED_WITH',
   ASSOCIATED_WITH: 'ASSOCIATED_WITH',
   OBSERVED_AT: 'OBSERVED_AT',
@@ -370,6 +375,7 @@ export const ExportFormat = {
   markdown: 'markdown',
   json: 'json',
   html: 'html',
+  csv: 'csv',
 } as const;
 
 export type UploadState = typeof UploadState[keyof typeof UploadState];
@@ -623,9 +629,18 @@ export interface RelationshipUpdate {
   explanation?: string;
 }
 
+export interface GraphTruncation {
+  truncated: boolean;
+  nodes_truncated: boolean;
+  edges_truncated: boolean;
+  node_limit: number;
+  edge_limit: number;
+}
+
 export interface Graph {
   nodes: Entity[];
   edges: Relationship[];
+  truncation?: GraphTruncation;
 }
 
 export interface GraphPath {
@@ -706,24 +721,120 @@ export interface SavedViewInput {
   viewport: JsonMetadata;
 }
 
-export type TimelineEventKind = typeof TimelineEventKind[keyof typeof TimelineEventKind];
+export type TimelineKind = typeof TimelineKind[keyof typeof TimelineKind];
 
 
-export const TimelineEventKind = {
-  EVIDENCE: 'EVIDENCE',
-  ENTITY: 'ENTITY',
+export const TimelineKind = {
+  POST: 'POST',
+  TRANSACTION: 'TRANSACTION',
+  DOMAIN_APPEARANCE: 'DOMAIN_APPEARANCE',
+  ALIAS_CREATION: 'ALIAS_CREATION',
+  PGP_USAGE: 'PGP_USAGE',
+  INFRASTRUCTURE_CHANGE: 'INFRASTRUCTURE_CHANGE',
+  ENTITY_OBSERVED: 'ENTITY_OBSERVED',
+  EVIDENCE_COLLECTED: 'EVIDENCE_COLLECTED',
   AUDIT: 'AUDIT',
 } as const;
 
 export interface TimelineEvent {
   id: string;
-  kind: TimelineEventKind;
+  kind: TimelineKind;
   title: string;
   occurred_at: string;
   /** @nullable */
   entity_id?: string | null;
   /** @nullable */
   evidence_id?: string | null;
+}
+
+export type ProfileNoteSource = typeof ProfileNoteSource[keyof typeof ProfileNoteSource];
+
+
+export const ProfileNoteSource = {
+  entitydescription: 'entity.description',
+  entitymetadata: 'entity.metadata',
+} as const;
+
+export interface ProfileNote {
+  source: ProfileNoteSource;
+  /** @nullable */
+  key?: string | null;
+  value: unknown;
+}
+
+export interface ProfileActivity {
+  id: string;
+  action: string;
+  created_at: string;
+  resource_type: string;
+  resource_id: string;
+}
+
+export interface RelatedCase {
+  id: string;
+  title: string;
+}
+
+export interface EvidenceConclusion {
+  relationship_id: string;
+  relationship_type: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+  explanation: string;
+  /** @minItems 1 */
+  evidence_ids: string[];
+}
+
+export type ActorHypothesisProfileIndicatorGroups = {[key: string]: Entity[]};
+
+/**
+ * Bounded two-hop, evidence-cited reviewable correlation hypothesis; never an identity or culpability assertion.
+ */
+export interface ActorHypothesisProfile {
+  reviewable_hypothesis: true;
+  caution: string;
+  /**
+     * Stored analyst-assigned Entity.confidence value; not calculated algorithm output.
+     * @minimum 0
+     * @maximum 1
+     */
+  analyst_assigned_confidence: number;
+  personas: Entity[];
+  indicator_groups: ActorHypothesisProfileIndicatorGroups;
+  evidence_strength: EvidenceConclusion[];
+  contradictions: EvidenceConclusion[];
+  evidence_ids: string[];
+}
+
+/**
+ * Notes are projections of Entity.description and Entity.metadata; ARGUS has no separate entity-note table.
+ */
+export interface EntityProfile {
+  entity: Entity;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+  metadata: JsonMetadata;
+  /** @maxItems 400 */
+  relationships: Relationship[];
+  /** @maxItems 200 */
+  evidence: Evidence[];
+  /** @maxItems 201 */
+  timeline: TimelineEvent[];
+  /** @maxItems 100 */
+  activity: ProfileActivity[];
+  /** @maxItems 400 */
+  related_entities: Entity[];
+  /** @maxItems 25 */
+  related_cases: RelatedCase[];
+  notes: ProfileNote[];
+  notes_storage: 'Entity description and metadata; no separate note table.';
+  actor_hypothesis: ActorHypothesisProfile | null;
 }
 
 export interface AnalysisInput {
@@ -752,6 +863,19 @@ export interface Job {
   lease_expires_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface JobPage {
+  items: Job[];
+  /** @minimum 0 */
+  total: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  limit: number;
+  /** @minimum 0 */
+  offset: number;
 }
 
 export interface SimilarityFactor {
@@ -945,6 +1069,10 @@ export interface UploadFinalizeInput {
 
 export type LimitParameter = number;
 
+export type ListLimitParameter = number;
+
+export type SmallListLimitParameter = number;
+
 export type OffsetParameter = number;
 
 export type ListCasesParams = {
@@ -968,6 +1096,26 @@ export type SearchIntelligenceParams = {
 q: string;
 };
 
+export type ListEntitiesParams = {
+/**
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: ListLimitParameter;
+/**
+ * @minimum 0
+ */
+offset?: OffsetParameter;
+};
+
+export type ListRelationshipsParams = {
+/**
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: ListLimitParameter;
+};
+
 export type GetCaseGraphParams = {
 /**
  * @minimum 0
@@ -976,6 +1124,16 @@ export type GetCaseGraphParams = {
 min_confidence?: number;
 entity_type?: EntityType;
 relationship_type?: RelationshipType;
+/**
+ * @minimum 1
+ * @maximum 1000
+ */
+node_limit?: number;
+/**
+ * @minimum 1
+ * @maximum 2000
+ */
+edge_limit?: number;
 };
 
 export type FindEntityPathParams = {
@@ -988,9 +1146,87 @@ target: string;
 min_confidence?: number;
 };
 
+export type ListSavedViewsParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: SmallListLimitParameter;
+};
+
+export type ListEvidenceParams = {
+/**
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: ListLimitParameter;
+/**
+ * @minimum 0
+ */
+offset?: OffsetParameter;
+};
+
+export type GetCaseTimelineParams = {
+/**
+ * @maxItems 20
+ */
+kind?: TimelineKind[];
+start?: string;
+/**
+ * Exclusive UTC upper bound. To include a full UTC day, send midnight at the start of the next day.
+ */
+end?: string;
+entity_id?: string;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * @minimum 0
+ */
+offset?: OffsetParameter;
+};
+
+export type ListCaseJobsParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: SmallListLimitParameter;
+/**
+ * @minimum 0
+ */
+offset?: OffsetParameter;
+};
+
+export type ListPendingReviewJobsParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: LimitParameter;
+/**
+ * @minimum 0
+ */
+offset?: OffsetParameter;
+};
+
 export type CompareEntitiesParams = {
 left: string;
 right: string;
+};
+
+export type ListReportsParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: SmallListLimitParameter;
+/**
+ * @minimum 0
+ */
+offset?: OffsetParameter;
 };
 
 export type ExportReportParams = {

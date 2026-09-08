@@ -29,3 +29,27 @@ Do not commit `.env`, credentials, evidence, real personal data, generated local
 | Quality/ops | tests, limits, environments, operability, release review | relevant feature owner |
 
 Ownership means first review, not exclusive edit rights. Security-boundary changes require shell/auth plus quality/ops review.
+
+## Feature branch workflow
+
+Start from an up-to-date default branch and keep each branch limited to one
+reviewable owner area:
+
+```sh
+git switch main
+git pull --ff-only
+git switch -c feature/entity-graph
+# make focused changes and run the relevant checks
+git add apps tests docs
+git commit -m "Add cited entity graph behavior"
+git push -u origin feature/entity-graph
+```
+
+Suggested parallel branches include `feature/auth`, `feature/case-management`,
+`feature/entity-graph`, `feature/correlation-engine`, `feature/analysis`,
+`feature/reports`, and `feature/dashboard`. Rebase or merge the latest default
+branch before review according to repository policy; do not force-push over
+another developer's work. Generated contract-client changes belong in the same
+pull request as the reviewed OpenAPI change. Request the cross-review listed
+above, resolve checks, and merge through a pull request rather than committing
+directly to the default branch.

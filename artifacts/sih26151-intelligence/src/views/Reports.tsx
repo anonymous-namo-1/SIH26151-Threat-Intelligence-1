@@ -1,19 +1,24 @@
+import { useEffect } from 'react';
 import { useSearch, useLocation } from 'wouter';
-import { useListReports, type Report, getListReportsQueryKey } from '@workspace/api-client-react';
+import { useGetReport, getGetReportQueryKey } from '@workspace/api-client-react';
 import { CaseScope, useCaseWorkspace } from '@/hooks/use-case-workspace';
 import { ReportsList } from '@/features/reports/ReportsList';
 import { ReportEditor } from '@/features/reports/ReportEditor';
 
 export function Reports() {
-  const { caseId } = useCaseWorkspace();
+  const { caseId, setCaseId } = useCaseWorkspace();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const reportId = searchParams.get('report');
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
 
-  const { data: reports } = useListReports(caseId, { query: { enabled: !!caseId, queryKey: getListReportsQueryKey(caseId) } });
+  const { data: activeReport } = useGetReport(reportId || "", { query: { enabled: !!reportId, queryKey: getGetReportQueryKey(reportId || "") } });
   
-  const activeReport = reports?.find(r => r.id === reportId) || null;
+  useEffect(() => {
+    if (activeReport && activeReport.case_id !== caseId) {
+      setCaseId(activeReport.case_id);
+    }
+  }, [activeReport, caseId, setCaseId]);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -25,15 +30,16 @@ export function Reports() {
       <CaseScope>
         {activeReport ? (
           <ReportEditor report={activeReport} onBack={() => {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete('report');
-            setLocation(newUrl.pathname + newUrl.search);
+            const params = new URLSearchParams(searchString);
+            params.delete('report');
+            const str = params.toString();
+            setLocation(window.location.pathname + (str ? `?${str}` : ''));
           }} />
         ) : (
           <ReportsList onSelect={(report) => {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.set('report', report.id);
-            setLocation(newUrl.pathname + newUrl.search);
+            const params = new URLSearchParams(searchString);
+            params.set('report', report.id);
+            setLocation(window.location.pathname + `?${params.toString()}`);
           }} />
         )}
       </CaseScope>

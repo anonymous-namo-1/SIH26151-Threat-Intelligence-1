@@ -34,6 +34,7 @@ import type {
   Entity,
   EntityComparison,
   EntityInput,
+  EntityProfile,
   EntityUpdate,
   Evidence,
   EvidenceInput,
@@ -41,12 +42,21 @@ import type {
   ExportReportParams,
   FindEntityPathParams,
   GetCaseGraphParams,
+  GetCaseTimelineParams,
   Graph,
   GraphPath,
   HealthStatus,
   Job,
+  JobPage,
   ListAuditEventsParams,
+  ListCaseJobsParams,
   ListCasesParams,
+  ListEntitiesParams,
+  ListEvidenceParams,
+  ListPendingReviewJobsParams,
+  ListRelationshipsParams,
+  ListReportsParams,
+  ListSavedViewsParams,
   Me,
   ModuleInput,
   ModuleResult,
@@ -160,6 +170,80 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReadinessCheckUrl = () => {
+
+
+
+
+  return `/api/ready`
+}
+
+/**
+ * Public path is /api/ready because the API server base is /api; the private FastAPI upstream serves /ready.
+ */
+export const readinessCheck = async ( options?: Parameters<typeof customFetch>[1]): Promise<HealthStatus> => {
+
+  return customFetch<HealthStatus>(getReadinessCheckUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReadinessCheckQueryKey = () => {
+    return [
+    `/api/ready`
+    ] as const;
+    }
+
+
+export const getReadinessCheckQueryOptions = <TData = Awaited<ReturnType<typeof readinessCheck>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof readinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReadinessCheckQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof readinessCheck>>> = ({ signal }) => readinessCheck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof readinessCheck>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ReadinessCheckQueryResult = NonNullable<Awaited<ReturnType<typeof readinessCheck>>>
+export type ReadinessCheckQueryError = ErrorType<unknown>
+
+
+
+export function useReadinessCheck<TData = Awaited<ReturnType<typeof readinessCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof readinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getReadinessCheckQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -808,17 +892,26 @@ export function useSearchIntelligence<TData = Awaited<ReturnType<typeof searchIn
 
 
 
-export const getListEntitiesUrl = (caseId: string,) => {
+export const getListEntitiesUrl = (caseId: string,
+    params?: ListEntitiesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/argus/cases/${caseId}/entities`
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/entities?${stringifiedParams}` : `/api/argus/cases/${caseId}/entities`
 }
 
-export const listEntities = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<Entity[]> => {
+export const listEntities = async (caseId: string,
+    params?: ListEntitiesParams, options?: Parameters<typeof customFetch>[1]): Promise<Entity[]> => {
 
-  return customFetch<Entity[]>(getListEntitiesUrl(caseId),
+  return customFetch<Entity[]>(getListEntitiesUrl(caseId,params),
   {
     ...options,
     method: 'GET'
@@ -831,23 +924,25 @@ export const listEntities = async (caseId: string, options?: Parameters<typeof c
 
 
 
-export const getListEntitiesQueryKey = (caseId: string,) => {
+export const getListEntitiesQueryKey = (caseId: string,
+    params?: ListEntitiesParams,) => {
     return [
-    `/api/argus/cases/${caseId}/entities`
+    `/api/argus/cases/${caseId}/entities`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListEntitiesQueryOptions = <TData = Awaited<ReturnType<typeof listEntities>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListEntitiesQueryOptions = <TData = Awaited<ReturnType<typeof listEntities>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListEntitiesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListEntitiesQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getListEntitiesQueryKey(caseId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEntities>>> = ({ signal }) => listEntities(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEntities>>> = ({ signal }) => listEntities(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -862,11 +957,12 @@ export type ListEntitiesQueryError = ErrorType<unknown>
 
 
 export function useListEntities<TData = Awaited<ReturnType<typeof listEntities>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: ListEntitiesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListEntitiesQueryOptions(caseId,options)
+  const queryOptions = getListEntitiesQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1082,17 +1178,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getUpdateEntityMutationOptions(options));
     }
 
-export const getListRelationshipsUrl = (caseId: string,) => {
+export const getGetEntityProfileUrl = (entityId: string,) => {
 
 
 
 
-  return `/api/argus/cases/${caseId}/relationships`
+  return `/api/argus/entities/${entityId}/profile`
 }
 
-export const listRelationships = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<Relationship[]> => {
+export const getEntityProfile = async (entityId: string, options?: Parameters<typeof customFetch>[1]): Promise<EntityProfile> => {
 
-  return customFetch<Relationship[]>(getListRelationshipsUrl(caseId),
+  return customFetch<EntityProfile>(getGetEntityProfileUrl(entityId),
   {
     ...options,
     method: 'GET'
@@ -1105,23 +1201,105 @@ export const listRelationships = async (caseId: string, options?: Parameters<typ
 
 
 
-export const getListRelationshipsQueryKey = (caseId: string,) => {
+export const getGetEntityProfileQueryKey = (entityId: string,) => {
     return [
-    `/api/argus/cases/${caseId}/relationships`
+    `/api/argus/entities/${entityId}/profile`
     ] as const;
     }
 
 
-export const getListRelationshipsQueryOptions = <TData = Awaited<ReturnType<typeof listRelationships>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRelationships>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetEntityProfileQueryOptions = <TData = Awaited<ReturnType<typeof getEntityProfile>>, TError = ErrorType<unknown>>(entityId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEntityProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListRelationshipsQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getGetEntityProfileQueryKey(entityId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRelationships>>> = ({ signal }) => listRelationships(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEntityProfile>>> = ({ signal }) => getEntityProfile(entityId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: entityId !== null && entityId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEntityProfile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEntityProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getEntityProfile>>>
+export type GetEntityProfileQueryError = ErrorType<unknown>
+
+
+
+export function useGetEntityProfile<TData = Awaited<ReturnType<typeof getEntityProfile>>, TError = ErrorType<unknown>>(
+ entityId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEntityProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEntityProfileQueryOptions(entityId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListRelationshipsUrl = (caseId: string,
+    params?: ListRelationshipsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/relationships?${stringifiedParams}` : `/api/argus/cases/${caseId}/relationships`
+}
+
+export const listRelationships = async (caseId: string,
+    params?: ListRelationshipsParams, options?: Parameters<typeof customFetch>[1]): Promise<Relationship[]> => {
+
+  return customFetch<Relationship[]>(getListRelationshipsUrl(caseId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRelationshipsQueryKey = (caseId: string,
+    params?: ListRelationshipsParams,) => {
+    return [
+    `/api/argus/cases/${caseId}/relationships`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRelationshipsQueryOptions = <TData = Awaited<ReturnType<typeof listRelationships>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListRelationshipsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRelationships>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRelationshipsQueryKey(caseId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRelationships>>> = ({ signal }) => listRelationships(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -1136,11 +1314,12 @@ export type ListRelationshipsQueryError = ErrorType<unknown>
 
 
 export function useListRelationships<TData = Awaited<ReturnType<typeof listRelationships>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRelationships>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: ListRelationshipsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRelationships>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListRelationshipsQueryOptions(caseId,options)
+  const queryOptions = getListRelationshipsQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1516,17 +1695,26 @@ export function useFindEntityPath<TData = Awaited<ReturnType<typeof findEntityPa
 
 
 
-export const getListSavedViewsUrl = (caseId: string,) => {
+export const getListSavedViewsUrl = (caseId: string,
+    params?: ListSavedViewsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/argus/cases/${caseId}/views`
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/views?${stringifiedParams}` : `/api/argus/cases/${caseId}/views`
 }
 
-export const listSavedViews = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<SavedView[]> => {
+export const listSavedViews = async (caseId: string,
+    params?: ListSavedViewsParams, options?: Parameters<typeof customFetch>[1]): Promise<SavedView[]> => {
 
-  return customFetch<SavedView[]>(getListSavedViewsUrl(caseId),
+  return customFetch<SavedView[]>(getListSavedViewsUrl(caseId,params),
   {
     ...options,
     method: 'GET'
@@ -1539,23 +1727,25 @@ export const listSavedViews = async (caseId: string, options?: Parameters<typeof
 
 
 
-export const getListSavedViewsQueryKey = (caseId: string,) => {
+export const getListSavedViewsQueryKey = (caseId: string,
+    params?: ListSavedViewsParams,) => {
     return [
-    `/api/argus/cases/${caseId}/views`
+    `/api/argus/cases/${caseId}/views`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListSavedViewsQueryOptions = <TData = Awaited<ReturnType<typeof listSavedViews>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedViews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListSavedViewsQueryOptions = <TData = Awaited<ReturnType<typeof listSavedViews>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListSavedViewsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedViews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListSavedViewsQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getListSavedViewsQueryKey(caseId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSavedViews>>> = ({ signal }) => listSavedViews(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSavedViews>>> = ({ signal }) => listSavedViews(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -1570,11 +1760,12 @@ export type ListSavedViewsQueryError = ErrorType<unknown>
 
 
 export function useListSavedViews<TData = Awaited<ReturnType<typeof listSavedViews>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedViews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: ListSavedViewsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedViews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListSavedViewsQueryOptions(caseId,options)
+  const queryOptions = getListSavedViewsQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1718,17 +1909,26 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getDeleteSavedViewMutationOptions(options));
     }
 
-export const getListEvidenceUrl = (caseId: string,) => {
+export const getListEvidenceUrl = (caseId: string,
+    params?: ListEvidenceParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/argus/cases/${caseId}/evidence`
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/evidence?${stringifiedParams}` : `/api/argus/cases/${caseId}/evidence`
 }
 
-export const listEvidence = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<Evidence[]> => {
+export const listEvidence = async (caseId: string,
+    params?: ListEvidenceParams, options?: Parameters<typeof customFetch>[1]): Promise<Evidence[]> => {
 
-  return customFetch<Evidence[]>(getListEvidenceUrl(caseId),
+  return customFetch<Evidence[]>(getListEvidenceUrl(caseId,params),
   {
     ...options,
     method: 'GET'
@@ -1741,23 +1941,25 @@ export const listEvidence = async (caseId: string, options?: Parameters<typeof c
 
 
 
-export const getListEvidenceQueryKey = (caseId: string,) => {
+export const getListEvidenceQueryKey = (caseId: string,
+    params?: ListEvidenceParams,) => {
     return [
-    `/api/argus/cases/${caseId}/evidence`
+    `/api/argus/cases/${caseId}/evidence`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListEvidenceQueryOptions = <TData = Awaited<ReturnType<typeof listEvidence>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListEvidenceQueryOptions = <TData = Awaited<ReturnType<typeof listEvidence>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListEvidenceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListEvidenceQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getListEvidenceQueryKey(caseId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEvidence>>> = ({ signal }) => listEvidence(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEvidence>>> = ({ signal }) => listEvidence(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -1772,11 +1974,12 @@ export type ListEvidenceQueryError = ErrorType<unknown>
 
 
 export function useListEvidence<TData = Awaited<ReturnType<typeof listEvidence>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: ListEvidenceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListEvidenceQueryOptions(caseId,options)
+  const queryOptions = getListEvidenceQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1992,17 +2195,34 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getUpdateEvidenceMutationOptions(options));
     }
 
-export const getGetCaseTimelineUrl = (caseId: string,) => {
+export const getGetCaseTimelineUrl = (caseId: string,
+    params?: GetCaseTimelineParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["kind"];
 
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
-  return `/api/argus/cases/${caseId}/timeline`
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/timeline?${stringifiedParams}` : `/api/argus/cases/${caseId}/timeline`
 }
 
-export const getCaseTimeline = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<TimelineEvent[]> => {
+export const getCaseTimeline = async (caseId: string,
+    params?: GetCaseTimelineParams, options?: Parameters<typeof customFetch>[1]): Promise<TimelineEvent[]> => {
 
-  return customFetch<TimelineEvent[]>(getGetCaseTimelineUrl(caseId),
+  return customFetch<TimelineEvent[]>(getGetCaseTimelineUrl(caseId,params),
   {
     ...options,
     method: 'GET'
@@ -2015,23 +2235,25 @@ export const getCaseTimeline = async (caseId: string, options?: Parameters<typeo
 
 
 
-export const getGetCaseTimelineQueryKey = (caseId: string,) => {
+export const getGetCaseTimelineQueryKey = (caseId: string,
+    params?: GetCaseTimelineParams,) => {
     return [
-    `/api/argus/cases/${caseId}/timeline`
+    `/api/argus/cases/${caseId}/timeline`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetCaseTimelineQueryOptions = <TData = Awaited<ReturnType<typeof getCaseTimeline>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCaseTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCaseTimelineQueryOptions = <TData = Awaited<ReturnType<typeof getCaseTimeline>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: GetCaseTimelineParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCaseTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetCaseTimelineQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getGetCaseTimelineQueryKey(caseId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCaseTimeline>>> = ({ signal }) => getCaseTimeline(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCaseTimeline>>> = ({ signal }) => getCaseTimeline(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -2046,11 +2268,12 @@ export type GetCaseTimelineQueryError = ErrorType<unknown>
 
 
 export function useGetCaseTimeline<TData = Awaited<ReturnType<typeof getCaseTimeline>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCaseTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: GetCaseTimelineParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCaseTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetCaseTimelineQueryOptions(caseId,options)
+  const queryOptions = getGetCaseTimelineQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -2200,17 +2423,26 @@ export function useGetJob<TData = Awaited<ReturnType<typeof getJob>>, TError = E
 
 
 
-export const getListCaseJobsUrl = (caseId: string,) => {
+export const getListCaseJobsUrl = (caseId: string,
+    params?: ListCaseJobsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/argus/cases/${caseId}/jobs`
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/jobs?${stringifiedParams}` : `/api/argus/cases/${caseId}/jobs`
 }
 
-export const listCaseJobs = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<Job[]> => {
+export const listCaseJobs = async (caseId: string,
+    params?: ListCaseJobsParams, options?: Parameters<typeof customFetch>[1]): Promise<Job[]> => {
 
-  return customFetch<Job[]>(getListCaseJobsUrl(caseId),
+  return customFetch<Job[]>(getListCaseJobsUrl(caseId,params),
   {
     ...options,
     method: 'GET'
@@ -2223,23 +2455,25 @@ export const listCaseJobs = async (caseId: string, options?: Parameters<typeof c
 
 
 
-export const getListCaseJobsQueryKey = (caseId: string,) => {
+export const getListCaseJobsQueryKey = (caseId: string,
+    params?: ListCaseJobsParams,) => {
     return [
-    `/api/argus/cases/${caseId}/jobs`
+    `/api/argus/cases/${caseId}/jobs`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListCaseJobsQueryOptions = <TData = Awaited<ReturnType<typeof listCaseJobs>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCaseJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListCaseJobsQueryOptions = <TData = Awaited<ReturnType<typeof listCaseJobs>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListCaseJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCaseJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListCaseJobsQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getListCaseJobsQueryKey(caseId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCaseJobs>>> = ({ signal }) => listCaseJobs(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCaseJobs>>> = ({ signal }) => listCaseJobs(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -2254,11 +2488,98 @@ export type ListCaseJobsQueryError = ErrorType<unknown>
 
 
 export function useListCaseJobs<TData = Awaited<ReturnType<typeof listCaseJobs>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCaseJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: ListCaseJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCaseJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListCaseJobsQueryOptions(caseId,options)
+  const queryOptions = getListCaseJobsQueryOptions(caseId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPendingReviewJobsUrl = (caseId: string,
+    params?: ListPendingReviewJobsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/jobs/pending-review?${stringifiedParams}` : `/api/argus/cases/${caseId}/jobs/pending-review`
+}
+
+/**
+ * Retrieves every succeeded extraction/correlation queue that still has undecided candidates, independent of newer jobs.
+ */
+export const listPendingReviewJobs = async (caseId: string,
+    params?: ListPendingReviewJobsParams, options?: Parameters<typeof customFetch>[1]): Promise<JobPage> => {
+
+  return customFetch<JobPage>(getListPendingReviewJobsUrl(caseId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPendingReviewJobsQueryKey = (caseId: string,
+    params?: ListPendingReviewJobsParams,) => {
+    return [
+    `/api/argus/cases/${caseId}/jobs/pending-review`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPendingReviewJobsQueryOptions = <TData = Awaited<ReturnType<typeof listPendingReviewJobs>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListPendingReviewJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPendingReviewJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPendingReviewJobsQueryKey(caseId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPendingReviewJobs>>> = ({ signal }) => listPendingReviewJobs(caseId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: caseId !== null && caseId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPendingReviewJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPendingReviewJobsQueryResult = NonNullable<Awaited<ReturnType<typeof listPendingReviewJobs>>>
+export type ListPendingReviewJobsQueryError = ErrorType<unknown>
+
+
+
+export function useListPendingReviewJobs<TData = Awaited<ReturnType<typeof listPendingReviewJobs>>, TError = ErrorType<unknown>>(
+ caseId: string,
+    params?: ListPendingReviewJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPendingReviewJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPendingReviewJobsQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -2354,17 +2675,26 @@ export function useCompareEntities<TData = Awaited<ReturnType<typeof compareEnti
 
 
 
-export const getListReportsUrl = (caseId: string,) => {
+export const getListReportsUrl = (caseId: string,
+    params?: ListReportsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/argus/cases/${caseId}/reports`
+  return stringifiedParams.length > 0 ? `/api/argus/cases/${caseId}/reports?${stringifiedParams}` : `/api/argus/cases/${caseId}/reports`
 }
 
-export const listReports = async (caseId: string, options?: Parameters<typeof customFetch>[1]): Promise<Report[]> => {
+export const listReports = async (caseId: string,
+    params?: ListReportsParams, options?: Parameters<typeof customFetch>[1]): Promise<Report[]> => {
 
-  return customFetch<Report[]>(getListReportsUrl(caseId),
+  return customFetch<Report[]>(getListReportsUrl(caseId,params),
   {
     ...options,
     method: 'GET'
@@ -2377,23 +2707,25 @@ export const listReports = async (caseId: string, options?: Parameters<typeof cu
 
 
 
-export const getListReportsQueryKey = (caseId: string,) => {
+export const getListReportsQueryKey = (caseId: string,
+    params?: ListReportsParams,) => {
     return [
-    `/api/argus/cases/${caseId}/reports`
+    `/api/argus/cases/${caseId}/reports`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListReportsQueryOptions = <TData = Awaited<ReturnType<typeof listReports>>, TError = ErrorType<unknown>>(caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListReportsQueryOptions = <TData = Awaited<ReturnType<typeof listReports>>, TError = ErrorType<unknown>>(caseId: string,
+    params?: ListReportsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListReportsQueryKey(caseId);
+  const queryKey =  queryOptions?.queryKey ?? getListReportsQueryKey(caseId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReports>>> = ({ signal }) => listReports(caseId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReports>>> = ({ signal }) => listReports(caseId,params, { signal, ...requestOptions });
 
 
 
@@ -2408,11 +2740,12 @@ export type ListReportsQueryError = ErrorType<unknown>
 
 
 export function useListReports<TData = Awaited<ReturnType<typeof listReports>>, TError = ErrorType<unknown>>(
- caseId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ caseId: string,
+    params?: ListReportsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListReportsQueryOptions(caseId,options)
+  const queryOptions = getListReportsQueryOptions(caseId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

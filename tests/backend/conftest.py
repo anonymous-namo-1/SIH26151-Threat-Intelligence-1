@@ -14,10 +14,31 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from apps.api import auth
 from apps.api.auth import current_user
 from apps.api.database import Base, engine, get_db
+from apps.api.limits import RequestLimitsMiddleware
 from apps.api.main import app
 from apps.api.models import Role, User
+
+
+def _clear_process_local_request_state() -> None:
+    auth._seen_nonces.clear()
+    middleware = app.middleware_stack
+    visited: set[int] = set()
+    while middleware is not None and id(middleware) not in visited:
+        visited.add(id(middleware))
+        if isinstance(middleware, RequestLimitsMiddleware):
+            middleware.hits.clear()
+        middleware = getattr(middleware, "app", None)
+
+
+@pytest.fixture(autouse=True)
+def isolate_process_local_request_state():
+    """Keep replay/rate state inside one test without weakening production."""
+    _clear_process_local_request_state()
+    yield
+    _clear_process_local_request_state()
 
 
 @pytest.fixture

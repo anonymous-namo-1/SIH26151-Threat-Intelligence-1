@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useUpdateReport, useListEvidence, type Report, type Evidence } from '@workspace/api-client-react';
+import { useUpdateReport, useListEvidence, getListEvidenceQueryKey, getGetReportQueryKey, type Report, type Evidence } from '@workspace/api-client-react';
 import { useCaseWorkspace } from '@/hooks/use-case-workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ export function ReportEditor({ report, onBack }: { report: Report; onBack: () =>
   const { caseId } = useCaseWorkspace();
   const queryClient = useQueryClient();
   const { canWriteReport, canExportReport } = usePermissions();
-  const { data: evidenceList } = useListEvidence(caseId);
+  const { data: evidenceList } = useListEvidence(caseId, { limit: 500 }, { query: { enabled: !!caseId, queryKey: getListEvidenceQueryKey(caseId, { limit: 500 }) } });
   
   const [title, setTitle] = useState(report.title);
   const [body, setBody] = useState(report.body);
@@ -76,10 +76,8 @@ export function ReportEditor({ report, onBack }: { report: Report; onBack: () =>
     mutation: {
       onSuccess: (data) => {
         lastSaved.current = { title: data.title, body: data.body, citations: [...data.citations] };
-        queryClient.setQueryData(getListReportsQueryKey(caseId), (old: any) => {
-          if (!old) return old;
-          return old.map((r: Report) => r.id === data.id ? data : r);
-        });
+        queryClient.setQueryData(getGetReportQueryKey(data.id), data);
+        queryClient.invalidateQueries({ queryKey: getListReportsQueryKey(data.case_id), exact: false });
         toast.success("Report saved");
       },
       onError: () => toast.error("Failed to save report")

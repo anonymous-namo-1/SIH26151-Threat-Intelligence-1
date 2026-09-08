@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { rateLimit } from "express-rate-limit";
-import { callArgus } from "../lib/argusGateway";
-import { publicRouteAllowed } from "../lib/gatewayProof";
-import { getClerkProxyHost } from "../middlewares/clerkProxyMiddleware";
+import { callArgus, readBoundedResponse } from "../lib/argusGateway";
+import { mutationOriginAllowed, publicRouteAllowed } from "../lib/gatewayProof";
 import storageRouter from "./argusStorage";
 
 const router = Router();
@@ -14,9 +13,12 @@ router.use((req, res, next) => {
   }
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     const origin = req.get("origin");
-    let matchesOrigin = false;
-    try { matchesOrigin = !!origin && new URL(origin).host === getClerkProxyHost(req); } catch { /* reject malformed origin */ }
-    if (!matchesOrigin) {
+    const configuredHosts = [
+      ...(process.env.REPLIT_DOMAINS ?? "").split(","),
+      process.env.REPLIT_DEV_DOMAIN ?? "",
+      process.env.ARGUS_PUBLIC_HOST ?? "",
+    ];
+    if (!mutationOriginAllowed(origin, req.get("host"), configuredHosts)) {
       res.status(403).json({ detail: "Cross-origin modifications are not allowed." });
       return;
     }
@@ -43,6 +45,6 @@ router.use(async (req, res) => {
     const value = upstream.headers.get(name);
     if (value) res.setHeader(name, value);
   }
-  res.status(upstream.status).send(Buffer.from(await upstream.arrayBuffer()));
+  res.status(upstream.status).send(await readBoundedResponse(upstream));
 });
 export default router;

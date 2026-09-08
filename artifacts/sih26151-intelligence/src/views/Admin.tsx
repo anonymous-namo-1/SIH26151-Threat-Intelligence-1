@@ -1,4 +1,4 @@
-import { useListUsers, useUpdateUser, useGetMe, Role } from '@workspace/api-client-react';
+import { useListUsers, useUpdateUser, useGetMe, getListUsersQueryKey, Role } from '@workspace/api-client-react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,7 +18,7 @@ export function Admin() {
     updateUser.mutate({ userId, data: { role: newRole } }, {
       onSuccess: () => {
         toast({ title: 'User role updated' });
-        queryClient.invalidateQueries({ queryKey: ['/api/argus/users'] });
+        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
       },
       onError: () => toast({ title: 'Failed to update user', variant: 'destructive' })
     });

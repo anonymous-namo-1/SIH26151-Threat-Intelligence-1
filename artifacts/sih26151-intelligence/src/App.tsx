@@ -36,6 +36,8 @@ import { Reports } from '@/views/Reports';
 import { Audit } from '@/views/Audit';
 import { Security } from '@/views/Security';
 import { Admin } from '@/views/Admin';
+import { Entities } from '@/views/Entities';
+import { Workspace } from '@/views/Workspace';
 import { GlobalSearch } from '@/views/Search';
 
 const queryClient = new QueryClient({
@@ -132,9 +134,11 @@ function Router() {
           <Shell>
             <Switch>
               <ProtectedRoute path="/dashboard" component={Dashboard} />
+              <ProtectedRoute path="/workspace" component={Workspace} />
               <ProtectedRoute path="/investigations" component={Investigations} />
               <ProtectedRoute path="/cases" component={Investigations} />
               <ProtectedRoute path="/cases/:id" component={CaseDetails} />
+              <ProtectedRoute path="/entities" component={Entities} />
               <ProtectedRoute path="/search" component={GlobalSearch} />
               <ProtectedRoute path="/actors/:id" component={ActorProfile} />
               <ProtectedRoute path="/entities/:id" component={ActorProfile} />
