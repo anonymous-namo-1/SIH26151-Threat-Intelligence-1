@@ -22,7 +22,9 @@ leased analysis jobs also require the persistent backend topology.
 1. Import the repository as a Vercel project. The repository-root `vercel.json`
    explicitly selects Next.js and filters the build to the web package, so an
    import that starts with Root Directory `./` will not run the workspace-wide
-   build.
+   build. The root package also declares the same Next.js version solely so
+   Vercel can complete framework detection before it executes that filtered
+   command.
 2. Set **Root Directory** to `artifacts/sih26151-intelligence` when the Vercel
    project settings are available. This is the preferred configuration.
 3. Enable **Include source files outside of the Root Directory**. The web package
