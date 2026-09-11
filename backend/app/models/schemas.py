@@ -281,6 +281,35 @@ class EnrichmentRunListResponse(BaseModel):
     pagination: PaginationMeta
 
 
+class ResolutionRuleHit(BaseModel):
+    rule: str
+    description: str
+    score: float = Field(ge=0, le=1)
+    matched_value: str | None = None
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+
+
+class EntityLinkCandidate(BaseModel):
+    left_entity: EntityRecordResponse
+    right_entity: EntityRecordResponse
+    confidence_score: float = Field(ge=0, le=1)
+    rule_hits: list[ResolutionRuleHit]
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class EntityResolutionResponse(BaseModel):
+    candidates: list[EntityLinkCandidate]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CaseEntityResolutionResponse(EntityResolutionResponse):
+    case_id: UUID
+    generated_at: datetime
+
+
 class PersistedExtractionResponse(BaseModel):
     ingestion: IngestionResponse
     extraction: ExtractionResponse

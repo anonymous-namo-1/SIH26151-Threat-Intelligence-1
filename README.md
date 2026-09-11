@@ -55,6 +55,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `GET /api/v1/cases/{case_id}/entities` lists case-scoped extracted entities.
 - `GET /api/v1/cases/{case_id}/evidence` lists evidence-to-entity links.
 - `GET /api/v1/cases/{case_id}/enrichment-runs` lists enrichment run records.
+- `GET /api/v1/cases/{case_id}/resolution/candidates` returns deterministic entity-link candidates for a case.
 
 List endpoints support `limit` and `offset`. `limit` is capped at `100`.
 
@@ -327,6 +328,73 @@ Only trusted MITRE/GitHub hosts are allowed, and redirects are manually validate
 ```
 
 Every response includes warnings that MITRE ATT&CK enrichment is public analytical context, not proof of attribution or identity.
+
+## Module 2: Entity Resolution Engine
+
+The entity resolution engine reads persisted ingestions, entities, and evidence links inside a single case and returns candidate links between entities. It is deterministic and uses rule-based correlation only.
+
+It does not claim real-world identity attribution. Confidence scores are investigative support, not final proof.
+
+### Scoring Rules
+
+- Same wallet reused by multiple primary handles: `0.95`
+- Same PGP key ID, fingerprint, or armored public key block reused: `0.95`
+- Same Telegram/contact handle or email reused: `0.9`
+- Same normalized handle observed across multiple platforms: `0.8`
+- Similar username strings by deterministic normalization: `0.6`
+- Shared onion URL, domain, or profile URL domain: `0.65`
+- Similar writing keywords or text pattern markers: `0.45`
+- Shared observed dates or activity within one day: `0.35`
+
+When multiple rules hit the same entity pair, Argus uses the strongest score with a small bounded bonus for additional evidence. The result remains a candidate link.
+
+### Entity Resolution Endpoint
+
+```bash
+GET /api/v1/cases/{case_id}/resolution/candidates
+```
+
+Example response shape:
+
+```json
+{
+  "case_id": "00000000-0000-0000-0000-000000000000",
+  "generated_at": "2026-09-11T00:00:00Z",
+  "candidates": [
+    {
+      "left_entity": {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "entity_type": "handle",
+        "value": "alphaaccess",
+        "normalized_value": "alphaaccess"
+      },
+      "right_entity": {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "entity_type": "handle",
+        "value": "betabroker",
+        "normalized_value": "betabroker"
+      },
+      "confidence_score": 0.95,
+      "rule_hits": [
+        {
+          "rule": "same_wallet",
+          "description": "Same cryptocurrency wallet reused by multiple primary handles.",
+          "score": 0.95,
+          "matched_value": "0x1111111111111111111111111111111111111111"
+        }
+      ],
+      "warnings": [
+        "Candidate link is analytical correlation only, not proof of attribution or real-world identity."
+      ]
+    }
+  ],
+  "warnings": [
+    "Candidate link is analytical correlation only, not proof of attribution or real-world identity."
+  ]
+}
+```
+
+The engine never performs live crawling, Tor access, illegal-content ingestion, or external network calls.
 
 ## Next Integration Points
 
