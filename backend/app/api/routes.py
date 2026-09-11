@@ -9,6 +9,7 @@ from backend.app.models.schemas import (
     BlockchainEnrichmentRequest,
     BlockchainEnrichmentResponse,
     CaseCreate,
+    CaseEntityResolutionResponse,
     CaseListResponse,
     CaseResponse,
     EntityListResponse,
@@ -33,6 +34,7 @@ from backend.app.models.schemas import (
 )
 from backend.app.services.blockchain import BlockchainEnrichmentService
 from backend.app.services.data_ingestion import DataIngestionService
+from backend.app.services.entity_resolution import EntityResolutionService
 from backend.app.services.evidence import EvidenceCardService
 from backend.app.services.extraction import EntityExtractionService
 from backend.app.services.mitre_attack import MitreAttackEnrichmentService
@@ -56,6 +58,7 @@ data_ingestion_service = DataIngestionService(
     persistence_service=persistence_service,
     synthetic_crawler=synthetic_crawler,
 )
+entity_resolution_service = EntityResolutionService()
 
 
 def persistence_http_error(error: PersistenceError) -> HTTPException:
@@ -268,5 +271,20 @@ def list_case_enrichment_runs(
         return persistence_service.list_enrichment_runs(
             db, case_id=case_id, limit=limit, offset=offset
         )
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/resolution/candidates",
+    response_model=CaseEntityResolutionResponse,
+    tags=["cases"],
+)
+def list_case_resolution_candidates(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+) -> CaseEntityResolutionResponse:
+    try:
+        return entity_resolution_service.resolve_case(db, case_id)
     except PersistenceError as error:
         raise persistence_http_error(error) from error
