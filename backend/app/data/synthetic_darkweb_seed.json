@@ -1,0 +1,51 @@
+[
+  {
+    "source_type": "synthetic_dark_forum",
+    "platform": "LeakHub Market",
+    "handle": "blackfalcon",
+    "post": "Selling corporate access. Contact PGP: A1B2C3D4. BTC: bc1qfakewallet123. Telegram: @falcon_drop.",
+    "onion_url": "http://leakhubfakeabcd.onion",
+    "date": "2026-09-01",
+    "metadata": {
+      "synthetic": true,
+      "record_type": "dark-web forum post"
+    }
+  },
+  {
+    "source_type": "synthetic_marketplace",
+    "platform": "ShadowBazaar Demo",
+    "handle": "zeroledger",
+    "post": "Vendor profile lists escrow terms, fake ETH wallet 0x1111111111111111111111111111111111111111, and PGP: 9988AABBCCDD0011.",
+    "onion_url": "http://shadowbazaardemo.onion/vendor/zeroledger",
+    "date": "2026-09-02",
+    "metadata": {
+      "synthetic": true,
+      "record_type": "marketplace vendor profile"
+    }
+  },
+  {
+    "source_type": "synthetic_ransom_chat",
+    "platform": "RansomRoom Simulator",
+    "handle": "nightinvoice",
+    "post": "Private message claims sample files are ready. Contact nightinvoice@proton.example and BTC 3FakeLegacyWalletAddress000000.",
+    "onion_url": "http://ransomroomsimulated.onion/chat/8821",
+    "date": "2026-09-03",
+    "metadata": {
+      "synthetic": true,
+      "record_type": "ransom negotiation chat"
+    }
+  },
+  {
+    "source_type": "synthetic_onion_page",
+    "platform": "PasteDrop Mirror",
+    "handle": "archive_mirror",
+    "post": "Onion page mirror references fake dump sample hash d41d8cd98f00b204e9800998ecf8427e and domain victim-demo.example.",
+    "onion_url": "http://pastedropmirrorfake.onion/page/alpha",
+    "date": "2026-09-04",
+    "metadata": {
+      "synthetic": true,
+      "record_type": "onion marketplace page"
+    }
+  }
+]
+
