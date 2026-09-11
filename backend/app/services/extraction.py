@@ -14,10 +14,14 @@ from backend.app.models.schemas import (
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 DOMAIN_RE = re.compile(r"\b(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,63}\b")
 IP_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b")
-ONION_RE = re.compile(r"\bhttps?://[a-zA-Z0-9-]{8,64}\.onion(?:/[^\s]*)?\b")
+ONION_RE = re.compile(r"\b(?:https?://)?[a-zA-Z0-9-]{8,64}\.onion(?:/[^\s]*)?\b")
 BTC_RE = re.compile(r"\b(?:bc1[a-zA-Z0-9]{8,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b")
 ETH_RE = re.compile(r"\b0x[a-fA-F0-9]{40}\b")
 PGP_ID_RE = re.compile(r"\b(?:PGP|GPG|key(?:\s*id)?):?\s*([A-Fa-f0-9]{8,40})\b")
+PGP_FINGERPRINT_RE = re.compile(
+    r"\b(?:PGP\s*)?(?:fingerprint|finger print):?\s*([A-Fa-f0-9][A-Fa-f0-9\s]{14,78}[A-Fa-f0-9])\b",
+    re.IGNORECASE,
+)
 PGP_BLOCK_RE = re.compile(
     r"-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----",
     re.DOTALL,
@@ -26,7 +30,7 @@ HASH_RE = re.compile(r"\b(?:[a-fA-F0-9]{32}|[a-fA-F0-9]{40}|[a-fA-F0-9]{64})\b")
 MITRE_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
 CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,7}\b", re.IGNORECASE)
 HANDLE_RE = re.compile(
-    r"(?:(?:handle|user|vendor|actor|telegram|contact)\s*[:=]\s*|@)([A-Za-z0-9_][A-Za-z0-9_.-]{2,31})\b",
+    r"(?:(?:handle|username|user|vendor|actor|alias|known as|telegram|signal|jabber|contact)\s*[:=]\s*|@)([A-Za-z0-9_][A-Za-z0-9_.-]{2,63})\b",
     re.IGNORECASE,
 )
 TELEGRAM_RE = re.compile(r"\b(?:t\.me|telegram\.me)/([A-Za-z0-9_]{3,32})\b", re.IGNORECASE)
@@ -107,6 +111,18 @@ class EntityExtractionService:
                     value=match.group(1).upper(),
                     entity_type="pgp_key_id",
                     confidence=0.88,
+                    evidence=self._window(text, match.start(), match.end()),
+                )
+            )
+        for match in PGP_FINGERPRINT_RE.finditer(text):
+            fingerprint = re.sub(r"\s+", "", match.group(1)).upper()
+            if len(fingerprint) < 16:
+                continue
+            entities.append(
+                EntityValue(
+                    value=fingerprint,
+                    entity_type="pgp_fingerprint",
+                    confidence=0.9,
                     evidence=self._window(text, match.start(), match.end()),
                 )
             )
@@ -247,4 +263,3 @@ class EntityExtractionService:
                 "Synthetic dark-web record: use for demonstration only, not attribution."
             ]
         return []
-

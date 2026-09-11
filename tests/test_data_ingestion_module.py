@@ -191,3 +191,110 @@ def test_invalid_case_returns_404(client: TestClient):
     assert response.status_code == 404
     assert response.json()["detail"] == "Requested record was not found."
 
+
+def test_profile_ingestion_persists_profile_entities(client: TestClient):
+    case = create_case(client)
+
+    response = client.post(
+        f"/api/v1/cases/{case['id']}/ingest/profile",
+        json={
+            "platform": "Synthetic Profile Paste",
+            "source_type": "synthetic_marketplace",
+            "text": (
+                "Username: blackfalcon\n"
+                "Alias: BlackFalcon_Ops\n"
+                "Contact: @black_falcon_chat\n"
+                "Contact: telegram: blackfalcon_market\n"
+                "PGP: A1B2C3D4E5F60708\n"
+                "BTC: bc1qfakewallet123abcxyz\n"
+                "Profile URL: http://example-synthetic-market.test/vendor/blackfalcon"
+            ),
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["ingestion"]["metadata"]["ingestion_module"] == "profile_text"
+
+    entities = list_entities(client, case["id"])
+    extracted = {(item["entity_type"], item["normalized_value"]) for item in entities}
+    assert ("handle", "blackfalcon") in extracted
+    assert ("handle", "blackfalcon ops") in extracted
+    assert ("handle", "black falcon chat") in extracted
+    assert ("handle", "blackfalcon market") in extracted
+    assert ("pgp_key_id", "a1b2c3d4e5f60708") in extracted
+    assert ("wallet:btc", "bc1qfakewallet123abcxyz") in extracted
+    assert ("domain", "example synthetic market test") in extracted
+
+
+def test_onion_metadata_ingestion_persists_metadata_entities(client: TestClient):
+    case = create_case(client)
+
+    response = client.post(
+        f"/api/v1/cases/{case['id']}/ingest/onion-metadata",
+        json={
+            "onion_url": "http://samplemetadataabcd.onion",
+            "title": "Synthetic Onion Metadata",
+            "category": "forum",
+            "language": "en",
+            "first_seen": "2026-08-01",
+            "last_seen": "2026-09-01",
+            "status": "offline-demo",
+            "mirrors": ["http://mirrorabcd1234.onion"],
+            "contacts": [
+                "@onion_admin",
+                "admin@example.test",
+                "PGP: A1B2C3D4E5F60708",
+                "wallet: 0x1111111111111111111111111111111111111111",
+            ],
+            "banners": ["Server: nginx 1.25 on 198.51.100.12"],
+            "server_headers": {"x-contact": "telegram: onion_meta"},
+            "metadata": {"analyst_supplied": True},
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["ingestion"]["metadata"]["network_access"] is False
+    assert payload["ingestion"]["onion_url"] == "http://samplemetadataabcd.onion"
+
+    entities = list_entities(client, case["id"])
+    extracted = {(item["entity_type"], item["normalized_value"]) for item in entities}
+    assert ("onion_url", "http samplemetadataabcd onion") in extracted
+    assert ("onion_url", "http mirrorabcd1234 onion") in extracted
+    assert ("handle", "onion admin") in extracted
+    assert ("email", "admin example test") in extracted
+    assert ("pgp_key_id", "a1b2c3d4e5f60708") in extracted
+    assert ("wallet:eth", "0x1111111111111111111111111111111111111111") in extracted
+    assert ("ip_address", "198 51 100 12") in extracted
+
+
+def test_profile_and_onion_invalid_case_return_404(client: TestClient):
+    missing_case_id = uuid4()
+
+    profile_response = client.post(
+        f"/api/v1/cases/{missing_case_id}/ingest/profile",
+        json={"text": "Username: missing_case_profile"},
+    )
+    onion_response = client.post(
+        f"/api/v1/cases/{missing_case_id}/ingest/onion-metadata",
+        json={"onion_url": "http://missingcaseabcd.onion"},
+    )
+
+    assert profile_response.status_code == 404
+    assert onion_response.status_code == 404
+
+
+def test_data_collection_status_endpoint(client: TestClient):
+    response = client.get("/api/v1/data-collection/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["module"] == "Module 1: Data Collection Layer"
+    capabilities = {item["key"]: item["implemented"] for item in payload["capabilities"]}
+    assert capabilities["synthetic_crawler_simulator"] is True
+    assert capabilities["public_osint_ingestion"] is True
+    assert capabilities["profile_parser_ingestion"] is True
+    assert capabilities["onion_metadata_ingestion"] is True
+    assert capabilities["persistence"] is True
+    assert any("No Tor" in warning for warning in payload["safety_warnings"])
