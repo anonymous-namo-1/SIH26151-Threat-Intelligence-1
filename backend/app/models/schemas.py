@@ -77,6 +77,52 @@ class OsintEnrichmentResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class MitreAttackEnrichmentRequest(BaseModel):
+    entities: ExtractedEntities
+
+
+class MitreAttackReference(BaseModel):
+    source_name: str
+    url: str | None = None
+    external_id: str | None = None
+
+
+class MitreAttackTechnique(BaseModel):
+    mitre_id: str
+    name: str
+    description: str | None = None
+    references: list[MitreAttackReference] = Field(default_factory=list)
+
+
+class MitreAttackSoftware(BaseModel):
+    mitre_id: str | None = None
+    name: str
+    software_type: Literal["malware", "tool"]
+    description: str | None = None
+    references: list[MitreAttackReference] = Field(default_factory=list)
+
+
+class MitreAttackGroupMatch(BaseModel):
+    matched_input: str
+    matched_on: Literal["group_name", "alias", "technique"]
+    group_name: str
+    mitre_group_id: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    description: str | None = None
+    techniques_used: list[MitreAttackTechnique] = Field(default_factory=list)
+    malware_tools_used: list[MitreAttackSoftware] = Field(default_factory=list)
+    mitre_source_references: list[MitreAttackReference] = Field(default_factory=list)
+    match_confidence: float = Field(ge=0, le=1)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class MitreAttackEnrichmentResponse(BaseModel):
+    matches: list[MitreAttackGroupMatch]
+    warnings: list[str] = Field(default_factory=list)
+    dataset_version: str | None = None
+    dataset_modified: str | None = None
+
+
 class BlockchainEnrichmentRequest(BaseModel):
     wallets: list[str] = Field(default_factory=list)
 
@@ -127,4 +173,3 @@ class SyntheticSourceRecord(BaseModel):
     onion_url: str | None = None
     date: date
     metadata: dict[str, Any] = Field(default_factory=dict)
-
