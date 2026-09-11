@@ -334,3 +334,29 @@ class PublicOsintIngestionRequest(BaseModel):
         if not source_url.startswith(("https://", "http://")):
             raise ValueError("source_url must be an HTTP or HTTPS URL")
         return source_url
+
+
+class ProfileParseRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=200_000)
+    platform: str | None = Field(default=None, max_length=200)
+    source_type: str = Field(default="analyst_profile_text", max_length=80)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProfileParseResponse(BaseModel):
+    platform: str | None = None
+    source_type: str
+    extracted_at: datetime
+    username: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    joined_date: str | None = None
+    reputation: str | None = None
+    sales_count: int | None = None
+    posts_count: int | None = None
+    last_active: str | None = None
+    pgp_keys: list[str] = Field(default_factory=list)
+    wallets: list[str] = Field(default_factory=list)
+    profile_urls: list[str] = Field(default_factory=list)
+    contact_handles: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
