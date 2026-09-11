@@ -8,6 +8,7 @@ from backend.app.database.session import get_db
 from backend.app.models.schemas import (
     BlockchainEnrichmentRequest,
     BlockchainEnrichmentResponse,
+    CaseAiProfileResponse,
     CaseCreate,
     CaseEntityResolutionResponse,
     CaseGraphResponse,
@@ -37,6 +38,7 @@ from backend.app.models.schemas import (
     SyntheticIngestionRequest,
     SyntheticSourceRecord,
 )
+from backend.app.services.ai_profiling import AiProfilingService
 from backend.app.services.blockchain import BlockchainEnrichmentService
 from backend.app.services.data_ingestion import DataIngestionService
 from backend.app.services.entity_resolution import EntityResolutionService
@@ -68,6 +70,10 @@ data_ingestion_service = DataIngestionService(
 entity_resolution_service = EntityResolutionService()
 graph_intelligence_service = GraphIntelligenceService(
     resolution_service=entity_resolution_service
+)
+ai_profiling_service = AiProfilingService(
+    resolution_service=entity_resolution_service,
+    graph_service=graph_intelligence_service,
 )
 
 
@@ -378,5 +384,20 @@ def get_case_graph(
 ) -> CaseGraphResponse:
     try:
         return graph_intelligence_service.build_case_graph(db, case_id)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/ai-profile",
+    response_model=CaseAiProfileResponse,
+    tags=["cases"],
+)
+def get_case_ai_profile(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+) -> CaseAiProfileResponse:
+    try:
+        return ai_profiling_service.build_case_profile(db, case_id)
     except PersistenceError as error:
         raise persistence_http_error(error) from error

@@ -378,6 +378,72 @@ class CaseGraphResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class StylometrySignal(BaseModel):
+    signal_type: str
+    description: str
+    confidence: float = Field(ge=0, le=1)
+    matched_values: list[str] = Field(default_factory=list)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+
+
+class BehaviorPatternSignal(BaseModel):
+    pattern: str
+    description: str
+    confidence: float = Field(ge=0, le=1)
+    supporting_entities: list[str] = Field(default_factory=list)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+    graph_edge_ids: list[str] = Field(default_factory=list)
+
+
+class RebrandSignal(BaseModel):
+    signal_type: str
+    description: str
+    confidence: float = Field(ge=0, le=1)
+    handles_or_aliases: list[str] = Field(default_factory=list)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+
+
+class RiskScoreContribution(BaseModel):
+    factor: str
+    points: int = Field(ge=0)
+    rationale: str
+    evidence_refs: list[str] = Field(default_factory=list)
+
+
+class RiskScoreBreakdown(BaseModel):
+    total: int = Field(ge=0, le=100)
+    level: Literal["low", "medium", "high", "critical"]
+    contributions: list[RiskScoreContribution] = Field(default_factory=list)
+
+
+class AttributionExplanation(BaseModel):
+    candidate_pair: list[str]
+    confidence: float = Field(ge=0, le=1)
+    explanation: str
+    supporting_rules: list[str] = Field(default_factory=list)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+    warning: str
+
+
+class CaseAiProfileResponse(BaseModel):
+    case_id: UUID
+    generated_at: datetime
+    profile_summary: str
+    risk_score: int = Field(ge=0, le=100)
+    risk_level: Literal["low", "medium", "high", "critical"]
+    risk_breakdown: RiskScoreBreakdown
+    stylometry: list[StylometrySignal] = Field(default_factory=list)
+    behavior_patterns: list[BehaviorPatternSignal] = Field(default_factory=list)
+    rebrand_signals: list[RebrandSignal] = Field(default_factory=list)
+    attribution_explanations: list[AttributionExplanation] = Field(default_factory=list)
+    recommended_next_steps: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class PersistedExtractionResponse(BaseModel):
     ingestion: IngestionResponse
     extraction: ExtractionResponse
