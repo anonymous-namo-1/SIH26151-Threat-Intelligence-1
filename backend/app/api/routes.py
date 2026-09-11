@@ -25,6 +25,8 @@ from backend.app.models.schemas import (
     OsintEnrichmentRequest,
     OsintEnrichmentResponse,
     PersistedExtractionResponse,
+    ProfileParseRequest,
+    ProfileParseResponse,
     PublicOsintIngestionRequest,
     SyntheticIngestionRequest,
     SyntheticSourceRecord,
@@ -36,6 +38,7 @@ from backend.app.services.extraction import EntityExtractionService
 from backend.app.services.mitre_attack import MitreAttackEnrichmentService
 from backend.app.services.osint import OsintEnrichmentService
 from backend.app.services.persistence import PersistenceError, PersistenceService
+from backend.app.services.profile_parser import ProfileParserService
 from backend.app.services.synthetic_crawler import SyntheticCrawlerSimulator
 
 
@@ -46,6 +49,7 @@ osint_service = OsintEnrichmentService()
 mitre_attack_service = MitreAttackEnrichmentService()
 blockchain_service = BlockchainEnrichmentService()
 evidence_service = EvidenceCardService()
+profile_parser_service = ProfileParserService()
 synthetic_crawler = SyntheticCrawlerSimulator()
 persistence_service = PersistenceService(extractor=extractor)
 data_ingestion_service = DataIngestionService(
@@ -85,6 +89,11 @@ def enrich_blockchain(
 @router.post("/evidence-card", response_model=EvidenceCardResponse)
 def generate_evidence_card(request: EvidenceCardRequest) -> EvidenceCardResponse:
     return evidence_service.generate(request)
+
+
+@router.post("/profile/parse", response_model=ProfileParseResponse)
+def parse_profile(request: ProfileParseRequest) -> ProfileParseResponse:
+    return profile_parser_service.parse(request)
 
 
 @router.get("/synthetic-sources", response_model=list[SyntheticSourceRecord])

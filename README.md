@@ -28,6 +28,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/enrich/mitre` enriches extracted threat actor and ATT&CK technique entities with the official MITRE ATT&CK Enterprise STIX 2.1 dataset.
 - `POST /api/v1/enrich/blockchain` classifies BTC/ETH wallet indicators and prepares public explorer references without querying illegal sources.
 - `POST /api/v1/evidence-card` returns an analyst-friendly evidence card.
+- `POST /api/v1/profile/parse` parses supplied synthetic or public profile text without scraping or network access.
 - `GET /api/v1/synthetic-sources` returns local fake dark-web records for demo ingestion.
 - `POST /api/v1/cases` creates an investigation case.
 - `GET /api/v1/cases` lists cases with pagination.
@@ -179,6 +180,22 @@ It does not fetch `source_url`; the URL is stored as context only.
 ```
 
 Supported extracted evidence includes CVEs, MITRE technique IDs, domains, IPs, file hashes, emails, wallets, malware names, and public threat actor mentions based on the existing extractor.
+
+## Profile Page Parser
+
+The profile parser accepts pasted synthetic profile text or public profile text an analyst already has permission to review. It extracts fields such as username, aliases, joined date, reputation, post/sales counts, last active date, PGP keys, wallets, profile URLs, and contact handles.
+
+It does not fetch URLs, scrape websites, log in, use Tor, or touch the network.
+
+### Example Profile Parse Request
+
+```json
+{
+  "platform": "Public OSINT Forum",
+  "source_type": "public_profile_text",
+  "text": "User: threat_researcher\nKnown as: malware-notes\nMember since: 2024-01-15\nPosts: 42\nSource: https://example.test/profiles/threat_researcher"
+}
+```
 
 ## MITRE ATT&CK Connector
 
