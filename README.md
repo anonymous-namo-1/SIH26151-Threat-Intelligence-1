@@ -1,13 +1,24 @@
-# Threat Intel Collector
+# Argus Threat Intel Collector
 
-Backend-first data collection layer for a dark-web anonymization/de-anonymization research demo.
+Backend-first **Module 1: Data Collection Layer** for Argus, an SIH26151 threat-intelligence platform.
 
-This module is intentionally split between:
+Module 1 provides a complete safe/legal collection flow:
+
+`case -> ingestion -> extraction -> persisted entities -> evidence`
+
+Completed subfeatures:
 
 - Synthetic dark-web data for criminal marketplace/forum/chat examples.
-- Legal public OSINT data for real threat actors, malware, CVEs, MITRE ATT&CK techniques, domains, IPs, hashes, and public wallet indicators.
+- Offline dark-web/forum/marketplace crawler simulator.
+- Public OSINT text ingestion for reports, news, advisories, and analyst submissions.
+- PGP key ID, fingerprint, and armored public key block extraction.
+- BTC and ETH wallet extraction/classification.
+- Handle and profile text parsing.
+- Analyst-supplied onion service metadata collection.
+- Case-scoped persistence for ingestions, entities, and evidence links.
+- Legal public enrichment hooks for MITRE ATT&CK and blockchain context.
 
-It does not crawl real onion services or ingest illegal content. The crawler component is an offline simulator that reads local synthetic fixtures.
+It does not crawl real onion services or ingest illegal content. The dark-web side is synthetic/offline only. Real data is allowed only from legal public OSINT sources and safe API-style enrichment.
 
 ## Run
 
@@ -29,6 +40,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/enrich/blockchain` classifies BTC/ETH wallet indicators and prepares public explorer references without querying illegal sources.
 - `POST /api/v1/evidence-card` returns an analyst-friendly evidence card.
 - `POST /api/v1/profile/parse` parses supplied synthetic or public profile text without scraping or network access.
+- `GET /api/v1/data-collection/status` returns Module 1 readiness/capability status and safety warnings.
 - `GET /api/v1/synthetic-sources` returns local fake dark-web records for demo ingestion.
 - `POST /api/v1/cases` creates an investigation case.
 - `GET /api/v1/cases` lists cases with pagination.
@@ -36,6 +48,8 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/cases/{case_id}/ingestions` runs extraction and persists the ingestion, entities, and evidence links in one transaction.
 - `POST /api/v1/cases/{case_id}/ingest/synthetic` ingests either a local synthetic crawler-simulator record or pasted synthetic dark-web-style text.
 - `POST /api/v1/cases/{case_id}/ingest/osint` ingests pasted public report, news, or advisory text with source metadata.
+- `POST /api/v1/cases/{case_id}/ingest/profile` ingests pasted synthetic/public profile text through the profile parser and persistence flow.
+- `POST /api/v1/cases/{case_id}/ingest/onion-metadata` ingests analyst-supplied onion metadata without fetching onion services.
 - `GET /api/v1/cases/{case_id}/ingestions` lists persisted ingestions.
 - `GET /api/v1/cases/{case_id}/ingestions/{ingestion_id}` returns one persisted ingestion.
 - `GET /api/v1/cases/{case_id}/entities` lists case-scoped extracted entities.
@@ -126,7 +140,19 @@ alembic downgrade -1
 
 Authentication and multi-user authorization are not implemented yet. Case-scoped queries prevent accidental cross-case record lookup, but they are not a substitute for user, tenant, or role-based access control.
 
-## Module 1: Synthetic Crawler Simulator Ingestion
+## Module 1: Data Collection Layer
+
+Module 1 is the unified backend collection module. Every case-scoped ingestion endpoint reuses deterministic extraction and persistence so the stored record keeps the original evidence text, extracted entities, and evidence snippets together.
+
+Safety boundaries:
+
+- No Tor integration.
+- No live onion crawling or fetching.
+- No login bypassing.
+- No scraping of illegal marketplaces.
+- No AI profiling, fuzzy attribution, graph intelligence, or dashboard code in this module.
+
+### Synthetic Crawler Simulator Ingestion
 
 The synthetic ingestion endpoint demonstrates dark-web-style collection without crawling real dark-web services. It reads from local fake records or accepts analyst-pasted synthetic text, then reuses the deterministic extractor and persistence service:
 
@@ -158,7 +184,7 @@ It does not use Tor, onion access, scraping, or live network calls.
 
 The endpoint returns the same `PersistedExtractionResponse` shape as the raw persistence endpoint.
 
-## Module 1: Public OSINT Text Ingestion
+### Public OSINT Text Ingestion
 
 The public OSINT ingestion endpoint accepts report, news, or advisory text that an analyst already has permission to use. It stores source metadata with the ingestion and runs the same extraction/persistence flow.
 
@@ -182,19 +208,79 @@ It does not fetch `source_url`; the URL is stored as context only.
 
 Supported extracted evidence includes CVEs, MITRE technique IDs, domains, IPs, file hashes, emails, wallets, malware names, and public threat actor mentions based on the existing extractor.
 
-## Profile Page Parser
+### Profile Ingestion
 
-The profile parser accepts pasted synthetic profile text or public profile text an analyst already has permission to review. It extracts fields such as username, aliases, joined date, reputation, post/sales counts, last active date, PGP keys, wallets, profile URLs, and contact handles.
+The profile parser accepts pasted synthetic profile text or public profile text an analyst already has permission to review. The case-scoped profile ingestion endpoint parses the profile, converts username, aliases, contacts, PGP keys, wallets, and profile URLs into extraction-friendly evidence text, then persists the resulting entities/evidence.
 
 It does not fetch URLs, scrape websites, log in, use Tor, or touch the network.
 
-### Example Profile Parse Request
+#### Example Profile Ingestion Request
 
 ```json
 {
   "platform": "Public OSINT Forum",
-  "source_type": "public_profile_text",
-  "text": "User: threat_researcher\nKnown as: malware-notes\nMember since: 2024-01-15\nPosts: 42\nSource: https://example.test/profiles/threat_researcher"
+  "source_type": "public_report",
+  "observed_at": "2026-09-01",
+  "text": "User: threat_researcher\nKnown as: malware-notes\nContact: @researcher_public\nPGP: A1B2C3D4E5F60708\nBTC: bc1qfakewallet123abcxyz\nSource: https://example.test/profiles/threat_researcher"
+}
+```
+
+The standalone parser remains available at `POST /api/v1/profile/parse` when persistence is not needed.
+
+### Onion Metadata Ingestion
+
+The onion metadata endpoint accepts analyst-supplied metadata only. It validates and persists the supplied onion URL, mirrors, contacts, banners, and server headers as evidence text. It never fetches the onion URL.
+
+#### Example Onion Metadata Request
+
+```json
+{
+  "onion_url": "http://samplemetadataabcd.onion",
+  "title": "Synthetic Onion Metadata",
+  "category": "forum",
+  "language": "en",
+  "first_seen": "2026-08-01",
+  "last_seen": "2026-09-01",
+  "status": "offline-demo",
+  "mirrors": ["http://mirrorabcd1234.onion"],
+  "contacts": [
+    "@onion_admin",
+    "admin@example.test",
+    "PGP: A1B2C3D4E5F60708",
+    "wallet: 0x1111111111111111111111111111111111111111"
+  ],
+  "banners": ["Server: nginx 1.25 on 198.51.100.12"],
+  "server_headers": {
+    "x-contact": "telegram: onion_meta"
+  },
+  "metadata": {
+    "analyst_supplied": true
+  }
+}
+```
+
+### Module Status
+
+`GET /api/v1/data-collection/status` reports implemented Module 1 capabilities and safety warnings.
+
+#### Example Status Response
+
+```json
+{
+  "module": "Module 1: Data Collection Layer",
+  "implemented": true,
+  "capabilities": [
+    {
+      "key": "synthetic_crawler_simulator",
+      "label": "Synthetic crawler simulator",
+      "implemented": true
+    }
+  ],
+  "safety_warnings": [
+    "No Tor access is implemented.",
+    "No live onion crawling or fetching is implemented.",
+    "Synthetic dark-web data and legal public OSINT only; illegal content ingestion is out of scope."
+  ]
 }
 ```
 

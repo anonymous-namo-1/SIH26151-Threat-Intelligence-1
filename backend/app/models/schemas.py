@@ -389,3 +389,72 @@ class ProfileParseResponse(BaseModel):
     contact_handles: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+
+
+class ProfileIngestionRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=200_000)
+    platform: str | None = Field(default=None, max_length=200)
+    source_type: SourceType = SourceType.analyst_submission
+    observed_at: date | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("source_type")
+    @classmethod
+    def require_supported_profile_source_type(cls, source_type: SourceType) -> SourceType:
+        allowed = {
+            SourceType.synthetic_dark_forum,
+            SourceType.synthetic_marketplace,
+            SourceType.synthetic_onion_page,
+            SourceType.public_report,
+            SourceType.public_advisory,
+            SourceType.public_indicator,
+            SourceType.analyst_submission,
+        }
+        if source_type not in allowed:
+            raise ValueError("Unsupported profile ingestion source type")
+        return source_type
+
+
+class OnionMetadataIngestionRequest(BaseModel):
+    onion_url: str = Field(min_length=8, max_length=500)
+    title: str | None = Field(default=None, max_length=500)
+    category: str | None = Field(default=None, max_length=120)
+    language: str | None = Field(default=None, max_length=80)
+    first_seen: date | None = None
+    last_seen: date | None = None
+    status: str | None = Field(default=None, max_length=80)
+    mirrors: list[str] = Field(default_factory=list, max_length=20)
+    contacts: list[str] = Field(default_factory=list, max_length=50)
+    banners: list[str] = Field(default_factory=list, max_length=20)
+    server_headers: dict[str, str] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("onion_url")
+    @classmethod
+    def require_onion_url(cls, onion_url: str) -> str:
+        normalized = onion_url.strip()
+        if ".onion" not in normalized.lower():
+            raise ValueError("onion_url must contain a .onion host")
+        return normalized
+
+    @field_validator("mirrors")
+    @classmethod
+    def require_onion_mirrors(cls, mirrors: list[str]) -> list[str]:
+        cleaned = [mirror.strip() for mirror in mirrors if mirror.strip()]
+        invalid = [mirror for mirror in cleaned if ".onion" not in mirror.lower()]
+        if invalid:
+            raise ValueError("mirrors must contain only .onion URLs or hosts")
+        return cleaned
+
+
+class DataCollectionCapability(BaseModel):
+    key: str
+    label: str
+    implemented: bool
+
+
+class DataCollectionStatusResponse(BaseModel):
+    module: str
+    implemented: bool
+    capabilities: list[DataCollectionCapability]
+    safety_warnings: list[str]

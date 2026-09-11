@@ -12,6 +12,8 @@ from backend.app.models.schemas import (
     CaseEntityResolutionResponse,
     CaseListResponse,
     CaseResponse,
+    DataCollectionCapability,
+    DataCollectionStatusResponse,
     EntityListResponse,
     EnrichmentRunListResponse,
     EvidenceListResponse,
@@ -25,7 +27,9 @@ from backend.app.models.schemas import (
     MitreAttackEnrichmentResponse,
     OsintEnrichmentRequest,
     OsintEnrichmentResponse,
+    OnionMetadataIngestionRequest,
     PersistedExtractionResponse,
+    ProfileIngestionRequest,
     ProfileParseRequest,
     ProfileParseResponse,
     PublicOsintIngestionRequest,
@@ -57,6 +61,7 @@ persistence_service = PersistenceService(extractor=extractor)
 data_ingestion_service = DataIngestionService(
     persistence_service=persistence_service,
     synthetic_crawler=synthetic_crawler,
+    profile_parser=profile_parser_service,
 )
 entity_resolution_service = EntityResolutionService()
 
@@ -97,6 +102,39 @@ def generate_evidence_card(request: EvidenceCardRequest) -> EvidenceCardResponse
 @router.post("/profile/parse", response_model=ProfileParseResponse)
 def parse_profile(request: ProfileParseRequest) -> ProfileParseResponse:
     return profile_parser_service.parse(request)
+
+
+@router.get(
+    "/data-collection/status",
+    response_model=DataCollectionStatusResponse,
+    tags=["collection"],
+)
+def data_collection_status() -> DataCollectionStatusResponse:
+    capabilities = [
+        ("synthetic_crawler_simulator", "Synthetic crawler simulator"),
+        ("public_osint_ingestion", "Public OSINT ingestion"),
+        ("pgp_extraction", "PGP key extraction"),
+        ("wallet_extraction", "Wallet address extraction"),
+        ("handle_extraction", "Handle extraction"),
+        ("profile_parser_ingestion", "Profile parser and ingestion"),
+        ("onion_metadata_ingestion", "Onion metadata ingestion"),
+        ("persistence", "Case-scoped persistence"),
+        ("mitre_enrichment_available", "MITRE ATT&CK enrichment available"),
+        ("blockchain_enrichment_available", "Blockchain enrichment available"),
+    ]
+    return DataCollectionStatusResponse(
+        module="Module 1: Data Collection Layer",
+        implemented=True,
+        capabilities=[
+            DataCollectionCapability(key=key, label=label, implemented=True)
+            for key, label in capabilities
+        ],
+        safety_warnings=[
+            "No Tor access is implemented.",
+            "No live onion crawling or fetching is implemented.",
+            "Synthetic dark-web data and legal public OSINT only; illegal content ingestion is out of scope.",
+        ],
+    )
 
 
 @router.get("/synthetic-sources", response_model=list[SyntheticSourceRecord])
@@ -179,6 +217,40 @@ def ingest_public_osint(
 ) -> PersistedExtractionResponse:
     try:
         return data_ingestion_service.ingest_osint(db, case_id, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.post(
+    "/cases/{case_id}/ingest/profile",
+    response_model=PersistedExtractionResponse,
+    status_code=201,
+    tags=["cases"],
+)
+def ingest_profile(
+    case_id: UUID,
+    request: ProfileIngestionRequest,
+    db: Session = Depends(get_db),
+) -> PersistedExtractionResponse:
+    try:
+        return data_ingestion_service.ingest_profile(db, case_id, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.post(
+    "/cases/{case_id}/ingest/onion-metadata",
+    response_model=PersistedExtractionResponse,
+    status_code=201,
+    tags=["cases"],
+)
+def ingest_onion_metadata(
+    case_id: UUID,
+    request: OnionMetadataIngestionRequest,
+    db: Session = Depends(get_db),
+) -> PersistedExtractionResponse:
+    try:
+        return data_ingestion_service.ingest_onion_metadata(db, case_id, request)
     except PersistenceError as error:
         raise persistence_http_error(error) from error
 
