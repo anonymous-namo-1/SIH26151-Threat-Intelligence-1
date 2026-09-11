@@ -1,0 +1,15 @@
+{
+  "platform_name": "generic-forum-template",
+  "selectors": {
+    "username": ".profile-username, .user-name, h1.username",
+    "alias": ".profile-alias, .also-known-as",
+    "joined_date": ".profile-joined, .joined-date",
+    "reputation": ".profile-reputation, .rep-score",
+    "sales_or_posts_count": ".profile-activity-count, .post-count, .sales-count",
+    "last_active": ".profile-last-active, .last-seen",
+    "contact_block": ".profile-contacts, .contact-info",
+    "pgp_block": ".profile-pgp, .pgp-key",
+    "wallet_block": ".profile-wallets, .wallet-info",
+    "bio": ".profile-bio, .about-me"
+  }
+}
