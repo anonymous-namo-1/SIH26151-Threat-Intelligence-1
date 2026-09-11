@@ -10,6 +10,7 @@ from backend.app.models.schemas import (
     BlockchainEnrichmentResponse,
     CaseCreate,
     CaseEntityResolutionResponse,
+    CaseGraphResponse,
     CaseListResponse,
     CaseResponse,
     DataCollectionCapability,
@@ -41,6 +42,7 @@ from backend.app.services.data_ingestion import DataIngestionService
 from backend.app.services.entity_resolution import EntityResolutionService
 from backend.app.services.evidence import EvidenceCardService
 from backend.app.services.extraction import EntityExtractionService
+from backend.app.services.graph_intelligence import GraphIntelligenceService
 from backend.app.services.mitre_attack import MitreAttackEnrichmentService
 from backend.app.services.osint import OsintEnrichmentService
 from backend.app.services.persistence import PersistenceError, PersistenceService
@@ -64,6 +66,9 @@ data_ingestion_service = DataIngestionService(
     profile_parser=profile_parser_service,
 )
 entity_resolution_service = EntityResolutionService()
+graph_intelligence_service = GraphIntelligenceService(
+    resolution_service=entity_resolution_service
+)
 
 
 def persistence_http_error(error: PersistenceError) -> HTTPException:
@@ -358,5 +363,20 @@ def list_case_resolution_candidates(
 ) -> CaseEntityResolutionResponse:
     try:
         return entity_resolution_service.resolve_case(db, case_id)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/graph",
+    response_model=CaseGraphResponse,
+    tags=["cases"],
+)
+def get_case_graph(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+) -> CaseGraphResponse:
+    try:
+        return graph_intelligence_service.build_case_graph(db, case_id)
     except PersistenceError as error:
         raise persistence_http_error(error) from error
