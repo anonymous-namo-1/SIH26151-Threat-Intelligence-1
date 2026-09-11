@@ -444,6 +444,86 @@ class CaseAiProfileResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class InfrastructureHeader(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    value: str = Field(min_length=1, max_length=1000)
+
+
+class CertificateObservation(BaseModel):
+    issuer: str | None = Field(default=None, max_length=500)
+    subject: str | None = Field(default=None, max_length=500)
+    serial: str | None = Field(default=None, max_length=200)
+    fingerprint: str | None = Field(default=None, max_length=200)
+
+
+class InfrastructureObservationRequest(BaseModel):
+    url: str | None = Field(default=None, max_length=1000)
+    onion_url: str | None = Field(default=None, max_length=500)
+    domain: str | None = Field(default=None, max_length=255)
+    ip_address: str | None = Field(default=None, max_length=80)
+    page_title: str | None = Field(default=None, max_length=500)
+    server_header: str | None = Field(default=None, max_length=1000)
+    powered_by_header: str | None = Field(default=None, max_length=1000)
+    tls_issuer: str | None = Field(default=None, max_length=500)
+    tls_subject: str | None = Field(default=None, max_length=500)
+    tls_serial: str | None = Field(default=None, max_length=200)
+    certificate_fingerprint: str | None = Field(default=None, max_length=200)
+    http_status: int | None = Field(default=None, ge=100, le=599)
+    open_ports: list[int] = Field(default_factory=list, max_length=100)
+    observed_at: date | None = None
+    source_label: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=5000)
+    headers: list[InfrastructureHeader] = Field(default_factory=list, max_length=50)
+    certificate: CertificateObservation | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("onion_url")
+    @classmethod
+    def require_onion_metadata_only(cls, onion_url: str | None) -> str | None:
+        if onion_url is None:
+            return onion_url
+        normalized = onion_url.strip()
+        if ".onion" not in normalized.lower():
+            raise ValueError("onion_url must contain a .onion host")
+        return normalized
+
+    @field_validator("open_ports")
+    @classmethod
+    def require_valid_ports(cls, open_ports: list[int]) -> list[int]:
+        return sorted({port for port in open_ports if 1 <= port <= 65535})
+
+
+class InfrastructureFinding(BaseModel):
+    finding_type: str
+    title: str
+    severity: Literal["low", "medium", "high", "critical"]
+    confidence: float = Field(ge=0, le=1)
+    description: str
+    matched_values: list[str] = Field(default_factory=list)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+    related_handles: list[str] = Field(default_factory=list)
+
+
+class InfrastructureSignal(BaseModel):
+    signal_type: str
+    description: str
+    confidence: float = Field(ge=0, le=1)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    source_ingestion_ids: list[UUID] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseInfrastructureResponse(BaseModel):
+    case_id: UUID
+    generated_at: datetime
+    findings: list[InfrastructureFinding] = Field(default_factory=list)
+    signals: list[InfrastructureSignal] = Field(default_factory=list)
+    risk_score: int = Field(ge=0, le=100)
+    risk_level: Literal["low", "medium", "high", "critical"]
+    warnings: list[str] = Field(default_factory=list)
+
+
 class PersistedExtractionResponse(BaseModel):
     ingestion: IngestionResponse
     extraction: ExtractionResponse

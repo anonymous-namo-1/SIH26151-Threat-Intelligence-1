@@ -12,6 +12,7 @@ from backend.app.models.schemas import (
     CaseCreate,
     CaseEntityResolutionResponse,
     CaseGraphResponse,
+    CaseInfrastructureResponse,
     CaseListResponse,
     CaseResponse,
     DataCollectionCapability,
@@ -25,6 +26,7 @@ from backend.app.models.schemas import (
     ExtractionResponse,
     IngestionListResponse,
     IngestionResponse,
+    InfrastructureObservationRequest,
     MitreAttackEnrichmentRequest,
     MitreAttackEnrichmentResponse,
     OsintEnrichmentRequest,
@@ -45,6 +47,7 @@ from backend.app.services.entity_resolution import EntityResolutionService
 from backend.app.services.evidence import EvidenceCardService
 from backend.app.services.extraction import EntityExtractionService
 from backend.app.services.graph_intelligence import GraphIntelligenceService
+from backend.app.services.infrastructure_analysis import InfrastructureAnalysisService
 from backend.app.services.mitre_attack import MitreAttackEnrichmentService
 from backend.app.services.osint import OsintEnrichmentService
 from backend.app.services.persistence import PersistenceError, PersistenceService
@@ -74,6 +77,9 @@ graph_intelligence_service = GraphIntelligenceService(
 ai_profiling_service = AiProfilingService(
     resolution_service=entity_resolution_service,
     graph_service=graph_intelligence_service,
+)
+infrastructure_analysis_service = InfrastructureAnalysisService(
+    persistence_service=persistence_service
 )
 
 
@@ -266,6 +272,23 @@ def ingest_onion_metadata(
         raise persistence_http_error(error) from error
 
 
+@router.post(
+    "/cases/{case_id}/ingest/infrastructure",
+    response_model=PersistedExtractionResponse,
+    status_code=201,
+    tags=["cases"],
+)
+def ingest_infrastructure_observation(
+    case_id: UUID,
+    request: InfrastructureObservationRequest,
+    db: Session = Depends(get_db),
+) -> PersistedExtractionResponse:
+    try:
+        return infrastructure_analysis_service.ingest_observation(db, case_id, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
 @router.get(
     "/cases/{case_id}/ingestions",
     response_model=IngestionListResponse,
@@ -399,5 +422,20 @@ def get_case_ai_profile(
 ) -> CaseAiProfileResponse:
     try:
         return ai_profiling_service.build_case_profile(db, case_id)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/infrastructure/findings",
+    response_model=CaseInfrastructureResponse,
+    tags=["cases"],
+)
+def get_case_infrastructure_findings(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+) -> CaseInfrastructureResponse:
+    try:
+        return infrastructure_analysis_service.analyze_case(db, case_id)
     except PersistenceError as error:
         raise persistence_http_error(error) from error
