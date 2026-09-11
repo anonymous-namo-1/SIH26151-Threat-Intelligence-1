@@ -57,6 +57,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `GET /api/v1/cases/{case_id}/enrichment-runs` lists enrichment run records.
 - `GET /api/v1/cases/{case_id}/resolution/candidates` returns deterministic entity-link candidates for a case.
 - `GET /api/v1/cases/{case_id}/graph` returns graph-ready nodes and confidence-weighted edges for a case.
+- `GET /api/v1/cases/{case_id}/ai-profile` returns deterministic AI-assisted profiling signals and risk scoring for a case.
 
 List endpoints support `limit` and `offset`. `limit` is capped at `100`.
 
@@ -466,6 +467,119 @@ High-confidence edges receive higher weights and `animated: true`; lower-confide
 ```
 
 Every graph edge is traceable to persisted evidence, an ingestion/source relationship, or a Module 2 resolution rule.
+
+## Module 4: AI Profiling Layer
+
+The AI profiling layer is deterministic AI-assisted analysis for the MVP. It reads persisted case ingestions, extracted entities, Module 2 candidate links, and Module 3 graph data, then returns analyst-friendly signals without calling live LLM or AI APIs.
+
+This module does not perform final attribution, identify real people, scrape websites, use Tor, or crawl onion services. Confidence and risk scores are investigative support only and require analyst review.
+
+### AI Profile Endpoint
+
+```bash
+GET /api/v1/cases/{case_id}/ai-profile
+```
+
+The response includes:
+
+- `profile_summary`: short case-level summary of evidence volume, graph context, candidate links, and risk.
+- `risk_score` and `risk_level`: deterministic capped score from explainable factors.
+- `risk_breakdown`: scored contributions with evidence references.
+- `stylometry`: repeated phrase, sentence length, punctuation, uncommon-word, contact-wording, and marketplace-language signals.
+- `behavior_patterns`: wallet, PGP, contact, platform, activity, infrastructure, and threat-context reuse patterns.
+- `rebrand_signals`: migration/rebrand wording and shared identifiers across different handles.
+- `attribution_explanations`: explanation of strong Module 2 candidate links.
+- `recommended_next_steps`: deterministic legal/public follow-up actions.
+- `warnings`: analytical and safety limitations.
+
+### Risk Scoring Rules
+
+- Wallet reuse: `+25`
+- PGP key reuse: `+25`
+- Shared contact: `+20`
+- Onion or infrastructure evidence: `+10`
+- Multiple platforms: `+10`
+- Malware, MITRE technique, or CVE mention: `+10`
+- Weak stylometry or activity match: `+5`
+
+Scores are capped at `100`.
+
+Risk levels:
+
+- `low`: `0-30`
+- `medium`: `31-60`
+- `high`: `61-85`
+- `critical`: `86-100`
+
+### Example AI Profile Response
+
+```json
+{
+  "case_id": "00000000-0000-0000-0000-000000000000",
+  "generated_at": "2026-09-11T00:00:00Z",
+  "profile_summary": "Profile generated from 2 persisted ingestion(s), 8 graph node(s), 12 evidence-backed edge(s), and 1 candidate link(s). 1 candidate link(s) are high confidence. Risk is high (65/100).",
+  "risk_score": 65,
+  "risk_level": "high",
+  "risk_breakdown": {
+    "total": 65,
+    "level": "high",
+    "contributions": [
+      {
+        "factor": "same_wallet",
+        "points": 25,
+        "rationale": "Wallet reuse appears in Module 2 candidate rules.",
+        "evidence_refs": ["same_wallet"]
+      }
+    ]
+  },
+  "stylometry": [
+    {
+      "signal_type": "shared_repeated_phrases",
+      "description": "Multiple ingestions share repeated phrase patterns.",
+      "confidence": 0.55,
+      "matched_values": ["silver river escrow"],
+      "evidence_snippets": ["Delivery phrase silver river escrow protocol."],
+      "source_ingestion_ids": ["11111111-1111-1111-1111-111111111111"]
+    }
+  ],
+  "behavior_patterns": [
+    {
+      "pattern": "same_wallet_reuse",
+      "description": "Multiple primary handles reuse the same cryptocurrency wallet.",
+      "confidence": 0.95,
+      "supporting_entities": ["0x1111111111111111111111111111111111111111"],
+      "evidence_snippets": ["ETH: 0x1111111111111111111111111111111111111111"],
+      "source_ingestion_ids": ["11111111-1111-1111-1111-111111111111"],
+      "graph_edge_ids": ["edge:entity:handle-id:entity:wallet-id:uses_wallet"]
+    }
+  ],
+  "rebrand_signals": [],
+  "attribution_explanations": [
+    {
+      "candidate_pair": ["blackfalcon", "falcon_ops"],
+      "confidence": 0.98,
+      "explanation": "These handles are linked because they reuse the same cryptocurrency wallet, and reuse the same PGP key material.",
+      "supporting_rules": ["same_wallet", "same_pgp"],
+      "evidence_snippets": ["PGP: A1B2C3D4E5F60708"],
+      "source_ingestion_ids": ["11111111-1111-1111-1111-111111111111"],
+      "warning": "This is not proof of real-world identity."
+    }
+  ],
+  "recommended_next_steps": [
+    "Verify wallet history through a legal public blockchain explorer.",
+    "Check whether the PGP key or fingerprint appears in legal public OSINT.",
+    "Inspect graph neighbors for evidence-backed shared identifiers.",
+    "Review source credibility and preserve original evidence snippets.",
+    "Collect more independent evidence before any attribution decision."
+  ],
+  "warnings": [
+    "AI profiling output is deterministic analyst support only, not proof of attribution or real-world identity.",
+    "No live AI API, Tor access, onion crawling, or illegal-content scraping is used."
+  ]
+}
+```
+
+All profile conclusions must trace back to persisted evidence, entity records, graph edges, or Module 2 resolution rules. The endpoint is designed for analyst triage, not final identity attribution.
 
 ## Next Integration Points
 
