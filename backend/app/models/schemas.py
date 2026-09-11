@@ -310,6 +310,74 @@ class CaseEntityResolutionResponse(EntityResolutionResponse):
     generated_at: datetime
 
 
+class GraphNode(BaseModel):
+    id: str
+    entity_id: UUID | None = None
+    ingestion_id: UUID | None = None
+    type: Literal[
+        "handle",
+        "alias",
+        "wallet",
+        "pgp_key",
+        "telegram",
+        "email",
+        "domain",
+        "ip_address",
+        "onion_url",
+        "malware",
+        "mitre_technique",
+        "cve",
+        "source",
+        "ingestion",
+    ]
+    label: str
+    value: str
+    group: Literal[
+        "identity",
+        "crypto",
+        "security_key",
+        "contact",
+        "infrastructure",
+        "threat_context",
+        "source",
+    ]
+    risk_level: Literal["low", "medium", "high"]
+    confidence: float = Field(ge=0, le=1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class GraphEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    type: Literal[
+        "mentioned_in",
+        "uses_wallet",
+        "uses_pgp",
+        "has_contact",
+        "hosted_on",
+        "observed_in_source",
+        "resolved_candidate",
+        "shared_indicator",
+        "related_to",
+    ]
+    label: str
+    confidence: float = Field(ge=0, le=1)
+    weight: int = Field(ge=1, le=5)
+    animated: bool
+    style_hint: Literal["high_confidence", "medium_confidence", "low_confidence"]
+    evidence_snippets: list[str] = Field(default_factory=list)
+    rule_hits: list[ResolutionRuleHit] = Field(default_factory=list)
+
+
+class CaseGraphResponse(BaseModel):
+    case_id: UUID
+    generated_at: datetime
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+    warnings: list[str] = Field(default_factory=list)
+
+
 class PersistedExtractionResponse(BaseModel):
     ingestion: IngestionResponse
     extraction: ExtractionResponse

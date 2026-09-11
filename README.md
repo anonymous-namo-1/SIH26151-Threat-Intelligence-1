@@ -56,6 +56,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `GET /api/v1/cases/{case_id}/evidence` lists evidence-to-entity links.
 - `GET /api/v1/cases/{case_id}/enrichment-runs` lists enrichment run records.
 - `GET /api/v1/cases/{case_id}/resolution/candidates` returns deterministic entity-link candidates for a case.
+- `GET /api/v1/cases/{case_id}/graph` returns graph-ready nodes and confidence-weighted edges for a case.
 
 List endpoints support `limit` and `offset`. `limit` is capped at `100`.
 
@@ -395,6 +396,76 @@ Example response shape:
 ```
 
 The engine never performs live crawling, Tor access, illegal-content ingestion, or external network calls.
+
+## Module 3: Graph Intelligence Layer
+
+The graph intelligence layer converts persisted case data and Module 2 resolution candidates into graph-ready JSON for a future animated frontend using React Flow, Cytoscape, D3, or a similar graph renderer.
+
+This module does not build frontend animation code, Neo4j storage, AI profiling, or dashboard views. It returns deterministic API-level graph data only.
+
+### Graph Endpoint
+
+```bash
+GET /api/v1/cases/{case_id}/graph
+```
+
+Each response includes:
+
+- `nodes`: entity, ingestion, and source nodes with frontend-friendly labels, groups, confidence, risk level, and metadata.
+- `edges`: evidence-backed and confidence-weighted links between nodes.
+- `warnings`: analytical limitations and safety boundaries.
+
+Supported node types include `handle`, `alias`, `wallet`, `pgp_key`, `telegram`, `email`, `domain`, `ip_address`, `onion_url`, `malware`, `mitre_technique`, `cve`, `source`, and `ingestion`.
+
+Supported edge types include `mentioned_in`, `uses_wallet`, `uses_pgp`, `has_contact`, `hosted_on`, `observed_in_source`, `resolved_candidate`, `shared_indicator`, and `related_to`.
+
+High-confidence edges receive higher weights and `animated: true`; lower-confidence context edges remain available for layout and filtering.
+
+### Example Graph Response
+
+```json
+{
+  "case_id": "00000000-0000-0000-0000-000000000000",
+  "generated_at": "2026-09-11T00:00:00Z",
+  "nodes": [
+    {
+      "id": "entity:11111111-1111-1111-1111-111111111111",
+      "entity_id": "11111111-1111-1111-1111-111111111111",
+      "type": "wallet",
+      "label": "ETH Wallet",
+      "value": "0x1111111111111111111111111111111111111111",
+      "group": "crypto",
+      "risk_level": "high",
+      "confidence": 0.98,
+      "metadata": {
+        "entity_type": "wallet:eth"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:entity:handle-id:entity:wallet-id:uses_wallet",
+      "source": "entity:handle-id",
+      "target": "entity:wallet-id",
+      "type": "uses_wallet",
+      "label": "uses wallet",
+      "confidence": 0.95,
+      "weight": 5,
+      "animated": true,
+      "style_hint": "high_confidence",
+      "evidence_snippets": [
+        "Vendor profile includes ETH: 0x1111111111111111111111111111111111111111"
+      ],
+      "rule_hits": []
+    }
+  ],
+  "warnings": [
+    "Graph edges are evidence-backed analytical links, not proof of attribution or identity."
+  ]
+}
+```
+
+Every graph edge is traceable to persisted evidence, an ingestion/source relationship, or a Module 2 resolution rule.
 
 ## Next Integration Points
 
