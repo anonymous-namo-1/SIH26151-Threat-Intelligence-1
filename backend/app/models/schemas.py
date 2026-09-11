@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, Literal
+from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SourceType(StrEnum):
@@ -173,3 +174,112 @@ class SyntheticSourceRecord(BaseModel):
     onion_url: str | None = None
     date: date
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    status: str = Field(default="open", min_length=1, max_length=40)
+
+
+class CaseResponse(BaseModel):
+    id: UUID
+    title: str
+    description: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginationMeta(BaseModel):
+    limit: int
+    offset: int
+    total: int
+
+
+class CaseListResponse(BaseModel):
+    items: list[CaseResponse]
+    pagination: PaginationMeta
+
+
+class IngestionResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    source_type: SourceType
+    platform: str | None = None
+    handle: str | None = None
+    onion_url: str | None = None
+    observed_at: date | None = None
+    raw_text: str
+    content_sha256: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class IngestionListResponse(BaseModel):
+    items: list[IngestionResponse]
+    pagination: PaginationMeta
+
+
+class EntityRecordResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    entity_type: str
+    value: str
+    normalized_value: str
+    confidence: float = Field(ge=0, le=1)
+    first_seen: datetime
+    last_seen: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EntityListResponse(BaseModel):
+    items: list[EntityRecordResponse]
+    pagination: PaginationMeta
+
+
+class EvidenceEntityLinkResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    ingestion_id: UUID
+    entity_id: UUID
+    confidence: float = Field(ge=0, le=1)
+    source_field: str
+    evidence_snippet: str
+    created_at: datetime
+    entity: EntityRecordResponse
+
+
+class EvidenceListResponse(BaseModel):
+    items: list[EvidenceEntityLinkResponse]
+    pagination: PaginationMeta
+
+
+class EnrichmentRunResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    ingestion_id: UUID | None = None
+    provider: str
+    status: str
+    request_payload: dict[str, Any] = Field(default_factory=dict)
+    result_payload: dict[str, Any] | None = None
+    error_message: str | None = None
+    started_at: datetime
+    completed_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EnrichmentRunListResponse(BaseModel):
+    items: list[EnrichmentRunResponse]
+    pagination: PaginationMeta
+
+
+class PersistedExtractionResponse(BaseModel):
+    ingestion: IngestionResponse
+    extraction: ExtractionResponse

@@ -15,6 +15,7 @@ It does not crawl real onion services or ingest illegal content. The crawler com
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+alembic upgrade head
 uvicorn backend.app.main:app --reload
 ```
 
@@ -28,6 +29,98 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/enrich/blockchain` classifies BTC/ETH wallet indicators and prepares public explorer references without querying illegal sources.
 - `POST /api/v1/evidence-card` returns an analyst-friendly evidence card.
 - `GET /api/v1/synthetic-sources` returns local fake dark-web records for demo ingestion.
+- `POST /api/v1/cases` creates an investigation case.
+- `GET /api/v1/cases` lists cases with pagination.
+- `GET /api/v1/cases/{case_id}` returns one case.
+- `POST /api/v1/cases/{case_id}/ingestions` runs extraction and persists the ingestion, entities, and evidence links in one transaction.
+- `GET /api/v1/cases/{case_id}/ingestions` lists persisted ingestions.
+- `GET /api/v1/cases/{case_id}/ingestions/{ingestion_id}` returns one persisted ingestion.
+- `GET /api/v1/cases/{case_id}/entities` lists case-scoped extracted entities.
+- `GET /api/v1/cases/{case_id}/evidence` lists evidence-to-entity links.
+- `GET /api/v1/cases/{case_id}/enrichment-runs` lists enrichment run records.
+
+List endpoints support `limit` and `offset`. `limit` is capped at `100`.
+
+## Database Persistence
+
+Argus uses SQLAlchemy 2.x with migration-managed schema changes through Alembic. The runtime database layer includes:
+
+- SQLAlchemy engine and session factory
+- FastAPI `get_db` dependency with rollback and cleanup
+- UUID primary keys
+- PostgreSQL JSONB with SQLite JSON fallback
+- UTC-aware timestamps
+- SQLite foreign-key enforcement for local tests
+- Case-scoped entity deduplication by `(case_id, entity_type, normalized_value)`
+- Composite foreign keys on evidence links and enrichment runs to prevent cross-case linking
+
+The app does not run `create_all()` automatically. Apply schema changes with Alembic.
+
+### Environment Variables
+
+- `APP_ENV`: `local`, `test`, `development`, or a deployed environment name. SQLite is allowed only for local/test/development.
+- `DATABASE_URL`: SQLAlchemy database URL. Defaults to `sqlite:///./argus_dev.db` for local development.
+- `MITRE_ATTACK_STIX_URL`: optional HTTPS URL for the Enterprise ATT&CK STIX bundle.
+- `MITRE_ATTACK_CACHE_TTL_SECONDS`: in-memory parsed MITRE dataset cache TTL.
+- `MITRE_ATTACK_CONNECT_TIMEOUT_SECONDS`: MITRE connector connection timeout.
+- `MITRE_ATTACK_READ_TIMEOUT_SECONDS`: MITRE connector read timeout.
+
+Use `.env.example` as a template. It contains fake local values only.
+
+### Local SQLite Setup
+
+```bash
+cp .env.example .env
+alembic upgrade head
+uvicorn backend.app.main:app --reload
+```
+
+SQLite is intended for local development and isolated tests only.
+
+### PostgreSQL Setup
+
+Set `DATABASE_URL` to a PostgreSQL URL supplied by your deployment environment or secret manager:
+
+```bash
+export APP_ENV=production
+export DATABASE_URL="postgresql+psycopg://argus_user:fake_password@example.internal:5432/argus"
+alembic upgrade head
+```
+
+Do not hard-code real credentials in source files.
+
+### Migration Commands
+
+```bash
+alembic upgrade head
+alembic downgrade -1
+```
+
+### Example Case Request
+
+```json
+{
+  "title": "Public ransomware report review",
+  "description": "Analyst collection for legal OSINT enrichment.",
+  "status": "open"
+}
+```
+
+### Example Persisted Ingestion Request
+
+```json
+{
+  "source_type": "public_report",
+  "platform": "Analyst Paste",
+  "observed_at": "2026-09-01",
+  "text": "A public report links LockBit activity to T1486 and CVE-2023-34362.",
+  "metadata": {
+    "source": "manual analyst paste"
+  }
+}
+```
+
+Authentication and multi-user authorization are not implemented yet. Case-scoped queries prevent accidental cross-case record lookup, but they are not a substitute for user, tenant, or role-based access control.
 
 ## MITRE ATT&CK Connector
 
@@ -76,7 +169,6 @@ Every response includes warnings that MITRE ATT&CK enrichment is public analytic
 
 ## Next Integration Points
 
-- PostgreSQL: persist submissions, evidence cards, and enrichment jobs.
 - Neo4j: store actor-handle-wallet-indicator relationships.
 - OpenSearch: index source text, snippets, and normalized indicators.
 - Redis/Celery: run enrichment connectors asynchronously.

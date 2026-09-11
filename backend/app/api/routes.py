@@ -1,16 +1,30 @@
-from fastapi import APIRouter
+from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from sqlalchemy.orm import Session
+
+from backend.app.database.session import get_db
 from backend.app.models.schemas import (
     BlockchainEnrichmentRequest,
     BlockchainEnrichmentResponse,
+    CaseCreate,
+    CaseListResponse,
+    CaseResponse,
+    EntityListResponse,
+    EnrichmentRunListResponse,
+    EvidenceListResponse,
     EvidenceCardRequest,
     EvidenceCardResponse,
     ExtractionRequest,
     ExtractionResponse,
+    IngestionListResponse,
+    IngestionResponse,
     MitreAttackEnrichmentRequest,
     MitreAttackEnrichmentResponse,
     OsintEnrichmentRequest,
     OsintEnrichmentResponse,
+    PersistedExtractionResponse,
     SyntheticSourceRecord,
 )
 from backend.app.services.blockchain import BlockchainEnrichmentService
@@ -18,6 +32,7 @@ from backend.app.services.evidence import EvidenceCardService
 from backend.app.services.extraction import EntityExtractionService
 from backend.app.services.mitre_attack import MitreAttackEnrichmentService
 from backend.app.services.osint import OsintEnrichmentService
+from backend.app.services.persistence import PersistenceError, PersistenceService
 from backend.app.services.synthetic_crawler import SyntheticCrawlerSimulator
 
 
@@ -29,6 +44,11 @@ mitre_attack_service = MitreAttackEnrichmentService()
 blockchain_service = BlockchainEnrichmentService()
 evidence_service = EvidenceCardService()
 synthetic_crawler = SyntheticCrawlerSimulator()
+persistence_service = PersistenceService(extractor=extractor)
+
+
+def persistence_http_error(error: PersistenceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.public_message)
 
 
 @router.post("/extract", response_model=ExtractionResponse)
@@ -63,3 +83,140 @@ def generate_evidence_card(request: EvidenceCardRequest) -> EvidenceCardResponse
 @router.get("/synthetic-sources", response_model=list[SyntheticSourceRecord])
 def list_synthetic_sources() -> list[SyntheticSourceRecord]:
     return synthetic_crawler.load_records()
+
+
+@router.post("/cases", response_model=CaseResponse, status_code=201, tags=["cases"])
+def create_case(request: CaseCreate, db: Session = Depends(get_db)) -> CaseResponse:
+    try:
+        return persistence_service.create_case(db, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get("/cases", response_model=CaseListResponse, tags=["cases"])
+def list_cases(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> CaseListResponse:
+    try:
+        return persistence_service.list_cases(db, limit=limit, offset=offset)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get("/cases/{case_id}", response_model=CaseResponse, tags=["cases"])
+def get_case(case_id: UUID, db: Session = Depends(get_db)) -> CaseResponse:
+    try:
+        return persistence_service.get_case(db, case_id)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.post(
+    "/cases/{case_id}/ingestions",
+    response_model=PersistedExtractionResponse,
+    status_code=201,
+    tags=["cases"],
+)
+def create_case_ingestion(
+    case_id: UUID,
+    request: ExtractionRequest,
+    db: Session = Depends(get_db),
+) -> PersistedExtractionResponse:
+    try:
+        return persistence_service.persist_extraction(db, case_id, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/ingestions",
+    response_model=IngestionListResponse,
+    tags=["cases"],
+)
+def list_case_ingestions(
+    case_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> IngestionListResponse:
+    try:
+        return persistence_service.list_ingestions(
+            db, case_id=case_id, limit=limit, offset=offset
+        )
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/ingestions/{ingestion_id}",
+    response_model=IngestionResponse,
+    tags=["cases"],
+)
+def get_case_ingestion(
+    case_id: UUID,
+    ingestion_id: UUID,
+    db: Session = Depends(get_db),
+) -> IngestionResponse:
+    try:
+        return persistence_service.get_ingestion(db, case_id, ingestion_id)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/entities",
+    response_model=EntityListResponse,
+    tags=["cases"],
+)
+def list_case_entities(
+    case_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> EntityListResponse:
+    try:
+        return persistence_service.list_entities(
+            db, case_id=case_id, limit=limit, offset=offset
+        )
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/evidence",
+    response_model=EvidenceListResponse,
+    tags=["cases"],
+)
+def list_case_evidence(
+    case_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> EvidenceListResponse:
+    try:
+        return persistence_service.list_evidence(
+            db, case_id=case_id, limit=limit, offset=offset
+        )
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.get(
+    "/cases/{case_id}/enrichment-runs",
+    response_model=EnrichmentRunListResponse,
+    tags=["cases"],
+)
+def list_case_enrichment_runs(
+    case_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> EnrichmentRunListResponse:
+    try:
+        return persistence_service.list_enrichment_runs(
+            db, case_id=case_id, limit=limit, offset=offset
+        )
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
