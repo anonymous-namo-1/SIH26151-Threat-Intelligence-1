@@ -25,9 +25,12 @@ from backend.app.models.schemas import (
     OsintEnrichmentRequest,
     OsintEnrichmentResponse,
     PersistedExtractionResponse,
+    PublicOsintIngestionRequest,
+    SyntheticIngestionRequest,
     SyntheticSourceRecord,
 )
 from backend.app.services.blockchain import BlockchainEnrichmentService
+from backend.app.services.data_ingestion import DataIngestionService
 from backend.app.services.evidence import EvidenceCardService
 from backend.app.services.extraction import EntityExtractionService
 from backend.app.services.mitre_attack import MitreAttackEnrichmentService
@@ -45,6 +48,10 @@ blockchain_service = BlockchainEnrichmentService()
 evidence_service = EvidenceCardService()
 synthetic_crawler = SyntheticCrawlerSimulator()
 persistence_service = PersistenceService(extractor=extractor)
+data_ingestion_service = DataIngestionService(
+    persistence_service=persistence_service,
+    synthetic_crawler=synthetic_crawler,
+)
 
 
 def persistence_http_error(error: PersistenceError) -> HTTPException:
@@ -126,6 +133,40 @@ def create_case_ingestion(
 ) -> PersistedExtractionResponse:
     try:
         return persistence_service.persist_extraction(db, case_id, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.post(
+    "/cases/{case_id}/ingest/synthetic",
+    response_model=PersistedExtractionResponse,
+    status_code=201,
+    tags=["cases"],
+)
+def ingest_synthetic_source(
+    case_id: UUID,
+    request: SyntheticIngestionRequest,
+    db: Session = Depends(get_db),
+) -> PersistedExtractionResponse:
+    try:
+        return data_ingestion_service.ingest_synthetic(db, case_id, request)
+    except PersistenceError as error:
+        raise persistence_http_error(error) from error
+
+
+@router.post(
+    "/cases/{case_id}/ingest/osint",
+    response_model=PersistedExtractionResponse,
+    status_code=201,
+    tags=["cases"],
+)
+def ingest_public_osint(
+    case_id: UUID,
+    request: PublicOsintIngestionRequest,
+    db: Session = Depends(get_db),
+) -> PersistedExtractionResponse:
+    try:
+        return data_ingestion_service.ingest_osint(db, case_id, request)
     except PersistenceError as error:
         raise persistence_http_error(error) from error
 

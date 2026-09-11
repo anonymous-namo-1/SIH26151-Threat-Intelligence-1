@@ -33,6 +33,8 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `GET /api/v1/cases` lists cases with pagination.
 - `GET /api/v1/cases/{case_id}` returns one case.
 - `POST /api/v1/cases/{case_id}/ingestions` runs extraction and persists the ingestion, entities, and evidence links in one transaction.
+- `POST /api/v1/cases/{case_id}/ingest/synthetic` ingests either a local synthetic crawler-simulator record or pasted synthetic dark-web-style text.
+- `POST /api/v1/cases/{case_id}/ingest/osint` ingests pasted public report, news, or advisory text with source metadata.
 - `GET /api/v1/cases/{case_id}/ingestions` lists persisted ingestions.
 - `GET /api/v1/cases/{case_id}/ingestions/{ingestion_id}` returns one persisted ingestion.
 - `GET /api/v1/cases/{case_id}/entities` lists case-scoped extracted entities.
@@ -121,6 +123,62 @@ alembic downgrade -1
 ```
 
 Authentication and multi-user authorization are not implemented yet. Case-scoped queries prevent accidental cross-case record lookup, but they are not a substitute for user, tenant, or role-based access control.
+
+## Module 1: Synthetic Crawler Simulator Ingestion
+
+The synthetic ingestion endpoint demonstrates dark-web-style collection without crawling real dark-web services. It reads from local fake records or accepts analyst-pasted synthetic text, then reuses the deterministic extractor and persistence service:
+
+`case -> ingestion -> extraction -> persisted entities -> evidence links`
+
+It does not use Tor, onion access, scraping, or live network calls.
+
+### Synthetic Record Request
+
+```json
+{
+  "synthetic_source_id": "synthetic-forum-leakhub-blackfalcon-20260901"
+}
+```
+
+### Synthetic Pasted Text Request
+
+```json
+{
+  "source_type": "synthetic_marketplace",
+  "platform": "Analyst Synthetic Paste",
+  "handle": "zeroledger",
+  "text": "Vendor handle: zeroledger. Contact PGP: 9988AABBCCDD0011. ETH 0x1111111111111111111111111111111111111111.",
+  "metadata": {
+    "scenario": "demo"
+  }
+}
+```
+
+The endpoint returns the same `PersistedExtractionResponse` shape as the raw persistence endpoint.
+
+## Module 2: Public OSINT Text Ingestion
+
+The public OSINT ingestion endpoint accepts report, news, or advisory text that an analyst already has permission to use. It stores source metadata with the ingestion and runs the same extraction/persistence flow.
+
+It does not fetch `source_url`; the URL is stored as context only.
+
+### Public OSINT Request
+
+```json
+{
+  "source_name": "CISA Public Advisory",
+  "source_url": "https://example.test/public-advisory",
+  "published_at": "2026-09-01",
+  "observed_at": "2026-09-02",
+  "source_type": "public_advisory",
+  "text": "A public advisory references CVE-2023-34362, T1486, evil.example, 203.0.113.10, and a SHA-256 hash.",
+  "metadata": {
+    "collection": "manual"
+  }
+}
+```
+
+Supported extracted evidence includes CVEs, MITRE technique IDs, domains, IPs, file hashes, emails, wallets, malware names, and public threat actor mentions based on the existing extractor.
 
 ## MITRE ATT&CK Connector
 
