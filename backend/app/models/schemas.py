@@ -167,6 +167,7 @@ class EvidenceCardResponse(BaseModel):
 
 
 class SyntheticSourceRecord(BaseModel):
+    id: str
     source_type: SourceType
     platform: str
     handle: str
@@ -283,3 +284,53 @@ class EnrichmentRunListResponse(BaseModel):
 class PersistedExtractionResponse(BaseModel):
     ingestion: IngestionResponse
     extraction: ExtractionResponse
+
+
+class SyntheticIngestionRequest(BaseModel):
+    synthetic_source_id: str | None = Field(default=None, min_length=1, max_length=120)
+    text: str | None = Field(default=None, min_length=1, max_length=200_000)
+    source_type: SourceType = SourceType.synthetic_dark_forum
+    platform: str | None = Field(default=None, max_length=200)
+    handle: str | None = Field(default=None, max_length=200)
+    onion_url: str | None = Field(default=None, max_length=500)
+    observed_at: date | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("source_type")
+    @classmethod
+    def require_synthetic_source_type(cls, source_type: SourceType) -> SourceType:
+        if not source_type.value.startswith("synthetic_"):
+            raise ValueError("Synthetic ingestion requires a synthetic source type")
+        return source_type
+
+
+class PublicOsintIngestionRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=200_000)
+    source_name: str = Field(min_length=1, max_length=200)
+    source_url: str | None = Field(default=None, max_length=1000)
+    published_at: date | None = None
+    observed_at: date | None = None
+    source_type: SourceType = SourceType.public_report
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("source_type")
+    @classmethod
+    def require_public_source_type(cls, source_type: SourceType) -> SourceType:
+        allowed = {
+            SourceType.public_report,
+            SourceType.public_advisory,
+            SourceType.public_indicator,
+            SourceType.analyst_submission,
+        }
+        if source_type not in allowed:
+            raise ValueError("OSINT ingestion requires a public or analyst source type")
+        return source_type
+
+    @field_validator("source_url")
+    @classmethod
+    def require_http_source_url(cls, source_url: str | None) -> str | None:
+        if source_url is None:
+            return source_url
+        if not source_url.startswith(("https://", "http://")):
+            raise ValueError("source_url must be an HTTP or HTTPS URL")
+        return source_url

@@ -1,5 +1,6 @@
 [
   {
+    "id": "synthetic-forum-leakhub-blackfalcon-20260901",
     "source_type": "synthetic_dark_forum",
     "platform": "LeakHub Market",
     "handle": "blackfalcon",
@@ -12,6 +13,7 @@
     }
   },
   {
+    "id": "synthetic-market-shadowbazaar-zeroledger-20260902",
     "source_type": "synthetic_marketplace",
     "platform": "ShadowBazaar Demo",
     "handle": "zeroledger",
@@ -24,6 +26,7 @@
     }
   },
   {
+    "id": "synthetic-ransom-room-nightinvoice-20260903",
     "source_type": "synthetic_ransom_chat",
     "platform": "RansomRoom Simulator",
     "handle": "nightinvoice",
@@ -36,6 +39,7 @@
     }
   },
   {
+    "id": "synthetic-onion-pastedrop-archive-mirror-20260904",
     "source_type": "synthetic_onion_page",
     "platform": "PasteDrop Mirror",
     "handle": "archive_mirror",
@@ -48,4 +52,3 @@
     }
   }
 ]
-

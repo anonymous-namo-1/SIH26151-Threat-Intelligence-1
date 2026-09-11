@@ -16,3 +16,8 @@ class SyntheticCrawlerSimulator:
         with SYNTHETIC_PATH.open("r", encoding="utf-8") as file:
             return [SyntheticSourceRecord(**record) for record in json.load(file)]
 
+    def get_record(self, record_id: str) -> SyntheticSourceRecord | None:
+        for record in self.load_records():
+            if record.id == record_id:
+                return record
+        return None
