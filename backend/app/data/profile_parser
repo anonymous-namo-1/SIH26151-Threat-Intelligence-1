@@ -1,0 +1,208 @@
+"""
+Config-driven parser for controlled synthetic/public profile pages.
+
+Reads HTML that already exists locally (a single file, or a directory of
+saved .html files) and extracts structured profile fields using a
+field-to-CSS-selector mapping loaded from an external JSON template.
+Free-text fields (PGP data, wallet addresses, contact handles) are pulled
+out with regex patterns, also defined in the template, run over
+designated "free text zones" with a whole-page-text fallback.
+
+This module does NOT fetch, crawl, log in to, or bypass authentication on
+any site. It only parses HTML you already have saved on disk.
+
+Usage:
+    python profile_parser.py --html samples/synthetic_profile_1.html
+    python profile_parser.py --html-dir samples/ --out out.csv
+"""
+
+import argparse
+import csv
+import json
+import re
+import sys
+from pathlib import Path
+
+from bs4 import BeautifulSoup
+
+WALLET_KEYS = ["wallet_btc", "wallet_eth", "wallet_xmr"]
+CONTACT_KEYS = [
+    "contact_telegram",
+    "contact_jabber",
+    "contact_discord",
+    "contact_wickr",
+    "contact_session",
+]
+
+
+def load_template(path: Path) -> dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def extract_field(soup: BeautifulSoup, selector: str):
+    el = soup.select_one(selector)
+    if el is None:
+        return None
+    text = el.get_text(strip=True)
+    return text or None
+
+
+def extract_attr_field(soup: BeautifulSoup, selector: str, attr: str):
+    el = soup.select_one(selector)
+    if el is None:
+        return None
+    value = el.get(attr)
+    return value.strip() if isinstance(value, str) else value
+
+
+def gather_free_text(soup: BeautifulSoup, selectors: list) -> str:
+    chunks = []
+    for sel in selectors:
+        for el in soup.select(sel):
+            text = el.get_text("\n", strip=True)
+            if text:
+                chunks.append(text)
+    return "\n".join(chunks)
+
+
+def regex_find_all(pattern: str, text: str) -> list:
+    if not pattern or not text:
+        return []
+    raw_matches = re.findall(pattern, text, flags=re.IGNORECASE)
+    results = []
+    for m in raw_matches:
+        if isinstance(m, tuple):
+            m = next((g for g in m if g), "")
+        if m:
+            results.append(m.strip())
+    seen = set()
+    deduped = []
+    for m in results:
+        if m not in seen:
+            seen.add(m)
+            deduped.append(m)
+    return deduped
+
+
+def extract_with_fallback(patterns: dict, key: str, zone_text: str, page_text: str) -> list:
+    pattern = patterns.get(key)
+    if not pattern:
+        return []
+    matches = regex_find_all(pattern, zone_text)
+    if not matches:
+        matches = regex_find_all(pattern, page_text)
+    return matches
+
+
+def parse_profile(html_path: Path, template: dict) -> dict:
+    html = html_path.read_text(encoding="utf-8", errors="replace")
+    soup = BeautifulSoup(html, "lxml")
+    page_text = soup.get_text("\n", strip=True)
+
+    profile = {}
+
+    for field, selector in template.get("fields", {}).items():
+        profile[field] = extract_field(soup, selector)
+
+    for field, spec in template.get("attribute_fields", {}).items():
+        profile[field] = extract_attr_field(soup, spec["selector"], spec.get("attr", "href"))
+
+    zone_text = gather_free_text(soup, template.get("free_text_zones", []))
+    if not zone_text:
+        zone_text = page_text
+
+    regex_patterns = template.get("regex", {})
+
+    fp_matches = extract_with_fallback(regex_patterns, "pgp_fingerprint", zone_text, page_text)
+    profile["pgp_fingerprint"] = fp_matches[0] if fp_matches else None
+
+    key_matches = extract_with_fallback(regex_patterns, "pgp_public_key_block", zone_text, page_text)
+    profile["pgp_public_key_block"] = key_matches[0] if key_matches else None
+
+    wallets = {}
+    for key in WALLET_KEYS:
+        wtype = key.split("_", 1)[1]
+        wallets[wtype] = extract_with_fallback(regex_patterns, key, zone_text, page_text)
+    profile["wallets"] = wallets
+
+    contacts = {}
+    for key in CONTACT_KEYS:
+        ctype = key.split("_", 1)[1]
+        contacts[ctype] = extract_with_fallback(regex_patterns, key, zone_text, page_text)
+    profile["contact_handles"] = contacts
+
+    platform_cfg = template.get("platform", {})
+    platform_name = None
+    if platform_cfg.get("name_selector"):
+        platform_name = extract_field(soup, platform_cfg["name_selector"])
+    profile["platform"] = platform_name or platform_cfg.get("name")
+
+    if not profile.get("profile_url"):
+        profile["profile_url"] = str(html_path)
+    profile["source_file"] = str(html_path)
+
+    return profile
+
+
+def flatten_for_csv(profile: dict) -> dict:
+    flat = dict(profile)
+
+    wallets = flat.pop("wallets", {}) or {}
+    wallet_parts = [f"{wtype}:{addr}" for wtype, addrs in wallets.items() for addr in addrs]
+    flat["wallets"] = "; ".join(wallet_parts)
+
+    contacts = flat.pop("contact_handles", {}) or {}
+    contact_parts = [f"{ctype}:{handle}" for ctype, handles in contacts.items() for handle in handles]
+    flat["contact_handles"] = "; ".join(contact_parts)
+
+    return flat
+
+
+def collect_html_files(args: argparse.Namespace) -> list:
+    if args.html:
+        return [Path(args.html)]
+    html_dir = Path(args.html_dir)
+    return sorted(html_dir.glob("*.html"))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Config-driven parser for locally-saved synthetic/public profile page HTML."
+    )
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--html", help="Path to a single local HTML file.")
+    source.add_argument("--html-dir", help="Path to a directory of local .html files.")
+    parser.add_argument(
+        "--template",
+        default="templates/generic.json",
+        help="Path to the JSON field/selector template (default: templates/generic.json).",
+    )
+    parser.add_argument(
+        "--out",
+        help="Path to write CSV output. If omitted, JSON is printed to stdout.",
+    )
+    args = parser.parse_args()
+
+    template = load_template(Path(args.template))
+    files = collect_html_files(args)
+    if not files:
+        print("No HTML files found.", file=sys.stderr)
+        sys.exit(1)
+
+    profiles = [parse_profile(f, template) for f in files]
+
+    if args.out:
+        rows = [flatten_for_csv(p) for p in profiles]
+        fieldnames = list(rows[0].keys())
+        with open(args.out, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"Wrote {len(rows)} profile(s) to {args.out}")
+    else:
+        print(json.dumps(profiles, indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
