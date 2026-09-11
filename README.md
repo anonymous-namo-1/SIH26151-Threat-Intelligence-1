@@ -50,6 +50,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/cases/{case_id}/ingest/osint` ingests pasted public report, news, or advisory text with source metadata.
 - `POST /api/v1/cases/{case_id}/ingest/profile` ingests pasted synthetic/public profile text through the profile parser and persistence flow.
 - `POST /api/v1/cases/{case_id}/ingest/onion-metadata` ingests analyst-supplied onion metadata without fetching onion services.
+- `POST /api/v1/cases/{case_id}/ingest/infrastructure` ingests analyst-supplied infrastructure metadata without scanning or network access.
 - `GET /api/v1/cases/{case_id}/ingestions` lists persisted ingestions.
 - `GET /api/v1/cases/{case_id}/ingestions/{ingestion_id}` returns one persisted ingestion.
 - `GET /api/v1/cases/{case_id}/entities` lists case-scoped extracted entities.
@@ -58,6 +59,7 @@ API docs will be available at `http://127.0.0.1:8000/docs`.
 - `GET /api/v1/cases/{case_id}/resolution/candidates` returns deterministic entity-link candidates for a case.
 - `GET /api/v1/cases/{case_id}/graph` returns graph-ready nodes and confidence-weighted edges for a case.
 - `GET /api/v1/cases/{case_id}/ai-profile` returns deterministic AI-assisted profiling signals and risk scoring for a case.
+- `GET /api/v1/cases/{case_id}/infrastructure/findings` returns metadata-only infrastructure misconfiguration and reuse findings.
 
 List endpoints support `limit` and `offset`. `limit` is capped at `100`.
 
@@ -580,6 +582,135 @@ Risk levels:
 ```
 
 All profile conclusions must trace back to persisted evidence, entity records, graph edges, or Module 2 resolution rules. The endpoint is designed for analyst triage, not final identity attribution.
+
+## Module 5: Infrastructure Misconfiguration Layer
+
+The infrastructure misconfiguration layer analyzes analyst-supplied or synthetic infrastructure metadata already persisted inside a case. It detects suspicious infrastructure reuse and misconfiguration signals without scanning hosts, fetching URLs, using Tor, crawling onion services, or touching illegal content.
+
+Findings are investigative signals only. They are not proof of attribution, identity, compromise, or ownership.
+
+### Infrastructure Ingestion Endpoint
+
+```bash
+POST /api/v1/cases/{case_id}/ingest/infrastructure
+```
+
+The endpoint accepts supplied metadata such as URLs, onion URLs, domains, IPs, page titles, server headers, powered-by headers, TLS certificate details, HTTP status, open ports, observation date, source label, and notes. It persists the observation through the existing ingestion, extraction, entity, and evidence flow.
+
+Example request:
+
+```json
+{
+  "url": "https://portal.example.test/login",
+  "onion_url": "http://portalabcd1234.onion",
+  "domain": "portal.example.test",
+  "ip_address": "203.0.113.10",
+  "page_title": "Falcon Market Login",
+  "server_header": "nginx/1.25.3",
+  "powered_by_header": "Express 4.18.2",
+  "tls_issuer": "Example Test CA",
+  "tls_subject": "CN=portal.example.test",
+  "tls_serial": "00FAKE1234",
+  "certificate_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "http_status": 200,
+  "open_ports": [80, 443],
+  "observed_at": "2026-09-01",
+  "source_label": "Analyst Infrastructure Paste",
+  "notes": "Metadata supplied by analyst; no live scanning performed.",
+  "metadata": {
+    "collection": "manual"
+  }
+}
+```
+
+The response uses the standard `PersistedExtractionResponse` shape and stores `network_access: false` in ingestion metadata.
+
+### Infrastructure Findings Endpoint
+
+```bash
+GET /api/v1/cases/{case_id}/infrastructure/findings
+```
+
+Detection rules include:
+
+- Same server or header pattern reused across multiple handles, platforms, or sources.
+- Same certificate fingerprint reused across domains or onion metadata.
+- Same TLS issuer and subject reused.
+- Similar onion and clearnet page-title metadata.
+- Exposed `X-Powered-By` or equivalent technology headers.
+- Admin, debug, staging, test, or dev descriptors in supplied headers/title/metadata.
+- Conflicting descriptors, such as one supplied onion title and a different clearnet mirror title.
+- Same IP or domain appearing in multiple infrastructure observations.
+
+Risk scoring:
+
+- Shared certificate fingerprint: `+30`
+- Shared server/header pattern: `+20`
+- Clearnet/onion metadata similarity: `+20`
+- Leaked powered-by/server technology: `+10`
+- Descriptor inconsistency: `+10`
+- Repeated IP/domain infrastructure: `+10`
+
+Scores are capped at `100`.
+
+Risk levels:
+
+- `low`: `0-30`
+- `medium`: `31-60`
+- `high`: `61-85`
+- `critical`: `86-100`
+
+Example response:
+
+```json
+{
+  "case_id": "00000000-0000-0000-0000-000000000000",
+  "generated_at": "2026-09-11T00:00:00Z",
+  "findings": [
+    {
+      "finding_type": "shared_certificate_fingerprint",
+      "title": "Shared certificate fingerprint",
+      "severity": "high",
+      "confidence": 0.95,
+      "description": "Same TLS certificate fingerprint appears across multiple infrastructure observations.",
+      "matched_values": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "evidence_snippets": [
+        "Infrastructure observation supplied by analyst; network_access: false url: https://portal.example.test/login"
+      ],
+      "source_ingestion_ids": [
+        "11111111-1111-1111-1111-111111111111"
+      ],
+      "related_handles": []
+    }
+  ],
+  "signals": [
+    {
+      "signal_type": "supplied_open_ports",
+      "description": "Open ports were supplied by the analyst as metadata.",
+      "confidence": 0.45,
+      "evidence_snippets": [
+        "open ports: 80, 443"
+      ],
+      "source_ingestion_ids": [
+        "11111111-1111-1111-1111-111111111111"
+      ],
+      "metadata": {
+        "open_ports": [80, 443]
+      }
+    }
+  ],
+  "risk_score": 60,
+  "risk_level": "medium",
+  "warnings": [
+    "Infrastructure findings are metadata-only investigative signals, not proof of attribution or real-world identity.",
+    "No live host scanning, Tor access, onion crawling, or external network lookup is performed."
+  ]
+}
+```
+
+Every finding is derived from persisted metadata, extracted entities, evidence snippets, or source ingestion IDs. The module is safe/legal prototype analysis only.
 
 ## Next Integration Points
 
