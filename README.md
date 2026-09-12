@@ -1,5 +1,81 @@
 # Argus Threat Intel Collector
 
+## Module 6: Analyst Dashboard
+
+The Next.js frontend lives in `frontend/`. The dashboard and investigation graph are the primary workspace; case management, ingestion, entities, AI profiling, infrastructure, reporting, and settings are intentionally compact supporting views.
+
+### Run the frontend
+
+Use Node.js 20.9 or newer (Node 24 recommended for this workspace):
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000/dashboard`. No backend or authentication is required for the fictional demo.
+
+```bash
+# Optional production check and server
+npm run typecheck
+npm run build
+npm start
+```
+
+The production build uses Next.js's webpack option for compatibility with restricted local build environments. The development server uses Turbopack.
+
+### Demo and live API modes
+
+- **Demo:** leave `NEXT_PUBLIC_API_BASE_URL` unset. Operation Nightfall provides a fictional network of 18 nodes. Created cases and analyst-supplied ingestions persist in this browser's local storage. The small demo extractor only recognizes supported patterns in supplied input. Demo AI/risk scores are fixtures and are not recomputed after ingestion; live scoring requires FastAPI.
+- **Live:** create `frontend/.env.local` using `frontend/.env.example`, then set the FastAPI **origin**, without `/api/v1`:
+
+```dotenv
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```
+
+Run the backend using the commands below, then restart Next.js. Rebuild production assets after changing this public environment variable. The API client calls `/api/backend/api/v1/...`; a Next.js server rewrite forwards requests to FastAPI. This keeps browser calls on the same origin and does not require a backend CORS change. The Next server must be able to reach the configured backend host.
+
+Live errors are shown with retry actions; the app never silently substitutes demo results for failed backend requests. The adapter follows the existing FastAPI schemas, loads paginated lists completely, and covers case creation/listing, all five ingestion endpoints, entities, evidence, resolution candidates, graph, AI profile, infrastructure findings, and case/ingestion details. Client requests have a 25-second timeout.
+
+### Workspace controls and routes
+
+- Click an entity for details; click a relationship for confidence, rule hits, and evidence snippets.
+- Pan by dragging the canvas. Use scroll/pinch, zoom controls, fit-view, and the minimap to navigate.
+- Filter by entity type or show only connections at 90% confidence or higher. Select a node to focus its immediate connections.
+- Drag the inspector by its top handle and resize from its edges/corners on desktop. Its six tabs provide overview, evidence, AI profile, infrastructure, timeline, and structured JSON. On small screens, the inspector opens as a scrollable bottom sheet.
+- Use the case selector or desktop search (`⌘K` / `Ctrl+K`) to navigate intelligence. Search selections have a shareable `?node=...` graph URL.
+- Motion honors the operating system's reduced-motion preference. The UI stays dark throughout.
+
+| Route | Purpose |
+| --- | --- |
+| `/dashboard` | Active investigation and graph workspace |
+| `/cases` | Case directory and case creation |
+| `/cases/[caseId]` | Case detail, counts, ingestion history |
+| `/cases/[caseId]/ingest` | Synthetic text, OSINT, profile, onion metadata, infrastructure metadata |
+| `/cases/[caseId]/graph` | Full investigation graph |
+| `/cases/[caseId]/entities` | Searchable entity registry |
+| `/cases/[caseId]/ai-profile` | Explainable risk and profiling signals |
+| `/cases/[caseId]/infrastructure` | Supplied-metadata findings |
+| `/cases/[caseId]/report` | Evidence report, working JSON/CSV downloads |
+| `/settings` | Environment and workspace information |
+
+PDF export and graph snapshot embedding are labeled placeholders. The analyst badge is a UI placeholder; authentication is not implemented. This frontend adds no scanning, Tor access, live onion crawling, or contact automation. Data input is analyst-supplied or legal public material only. Risk and correlations support analyst review and are not proof of attribution or identity.
+
+### Frontend structure and verification
+
+The implementation uses Next.js App Router, TypeScript, Tailwind CSS, a shadcn/ui Button built on Radix Slot and CVA, React Flow, Framer Motion, Lucide icons, and `react-rnd`. API normalization and demo persistence are isolated in `src/lib/`; the shell, graph, inspector, and supporting views are separate components. No remote font or image service is needed to render the workspace.
+
+```bash
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
+The browser suite covers graph rendering, entity/edge selection, all inspector tabs, dragging/resizing, zoom, filters, search, case switching, case creation, ingestion persistence, secondary routes, and JSON/CSV downloads. It captures desktop (1440×1000), mobile (390×844), and tablet (768×1024) layouts in `frontend/verification/`. If Chromium installation is unavailable, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an installed compatible Chrome executable. The suite runs in demo mode; leave `NEXT_PUBLIC_API_BASE_URL` unset while testing.
+
+Suggested commit summary: `feat(frontend): add Argus analyst graph workspace with API and demo modes`
+
 Backend-first **Module 1: Data Collection Layer** for Argus, an SIH26151 threat-intelligence platform.
 
 Module 1 provides a complete safe/legal collection flow:
